@@ -34,7 +34,7 @@ spec:
       containers:
         - name: python-app
           # CI 파이프라인에서 ghcr.io/OWNER/python-app:<git-sha> 로 업데이트됨
-          image: ghcr.io/anbyeonghyun/python-app:latest
+          image: ghcr.io/anbyounghyun/python-app:latest
           imagePullPolicy: Always
           ports:
             - name: http
