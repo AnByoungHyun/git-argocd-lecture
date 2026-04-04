@@ -1,0 +1,56 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Licensed to the Apache Software Foundation (ASF)
+# Maven Wrapper Script — Unix Shell
+# ----------------------------------------------------------------------------
+
+set -e
+
+# Resolve script location (follow symlinks)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+MAVEN_PROJECTBASEDIR="$SCRIPT_DIR"
+
+# Maven wrapper properties file
+MAVEN_WRAPPER_PROPERTIES="$MAVEN_PROJECTBASEDIR/.mvn/wrapper/maven-wrapper.properties"
+
+# Read distributionUrl from properties
+if [ -f "$MAVEN_WRAPPER_PROPERTIES" ]; then
+    DISTRIBUTION_URL=$(grep "^distributionUrl=" "$MAVEN_WRAPPER_PROPERTIES" | sed 's/distributionUrl=//')
+else
+    echo "ERROR: Cannot find .mvn/wrapper/maven-wrapper.properties" >&2
+    exit 1
+fi
+
+# Derive distribution directory name from URL
+DISTRIBUTION_FILE="${DISTRIBUTION_URL##*/}"
+DISTRIBUTION_NAME="${DISTRIBUTION_FILE%.zip}"
+DISTRIBUTION_NAME="${DISTRIBUTION_NAME%-bin}"
+
+# Maven home: ~/.m2/wrapper/dists/<name>
+M2_HOME="${HOME}/.m2/wrapper/dists/${DISTRIBUTION_NAME}"
+MAVEN_HOME="${M2_HOME}/${DISTRIBUTION_FILE%.zip}"
+MVNEXEC="${MAVEN_HOME}/bin/mvn"
+
+# Download if not already present
+if [ ! -f "$MVNEXEC" ]; then
+    echo "Downloading Maven ${DISTRIBUTION_NAME}..."
+    mkdir -p "$M2_HOME"
+
+    TMP_FILE="${M2_HOME}/${DISTRIBUTION_FILE}.tmp"
+
+    if command -v curl > /dev/null 2>&1; then
+        curl -fsSL "$DISTRIBUTION_URL" -o "$TMP_FILE"
+    elif command -v wget > /dev/null 2>&1; then
+        wget -q "$DISTRIBUTION_URL" -O "$TMP_FILE"
+    else
+        echo "ERROR: curl or wget is required to download Maven" >&2
+        exit 1
+    fi
+
+    unzip -q "$TMP_FILE" -d "$M2_HOME"
+    rm -f "$TMP_FILE"
+    echo "Maven downloaded to: $MAVEN_HOME"
+fi
+
+# Execute Maven with all arguments
+exec "$MVNEXEC" "$@"
