@@ -34,7 +34,7 @@ spec:
       containers:
         - name: java-app
           # CI 파이프라인에서 ghcr.io/OWNER/java-app:<git-sha> 로 업데이트됨
-          image: ghcr.io/OWNER/java-app:PLACEHOLDER_SHA
+          image: ghcr.io/anbyeonghyun/java-app:latest
           imagePullPolicy: Always
           ports:
             - name: http
