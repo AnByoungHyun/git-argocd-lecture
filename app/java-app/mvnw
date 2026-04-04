@@ -28,7 +28,7 @@ DISTRIBUTION_NAME="${DISTRIBUTION_NAME%-bin}"
 
 # Maven home: ~/.m2/wrapper/dists/<name>
 M2_HOME="${HOME}/.m2/wrapper/dists/${DISTRIBUTION_NAME}"
-MAVEN_HOME="${M2_HOME}/${DISTRIBUTION_FILE%.zip}"
+MAVEN_HOME="${M2_HOME}/${DISTRIBUTION_NAME}"
 MVNEXEC="${MAVEN_HOME}/bin/mvn"
 
 # Download if not already present
