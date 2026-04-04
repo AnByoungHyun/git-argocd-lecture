@@ -31,3 +31,4 @@ docker run -p 8080:8080 -e APP_VERSION=1.0.0 -e APP_ENV=development java-app:loc
 |------|-------|------|
 | `/` | GET | 앱 기본 정보 |
 | `/health` | GET | 헬스체크 (K8s probe) |
+
