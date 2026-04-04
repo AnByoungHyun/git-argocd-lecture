@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 에이전트 파이프 (로컬 통신용, 커밋 불필요)
+.agents/pipes/
+
+# 빌드 아티팩트
+target/
+node_modules/
+__pycache__/
+*.pyc
+*.class
+.pytest_cache/

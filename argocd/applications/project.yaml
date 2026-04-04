@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cicd-project
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: cicd-project
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "GitOps CI/CD 강의 프로젝트 — java-app, node-app, python-app 배포 관리"
+
+  # 허용된 Git 소스 저장소
+  sourceRepos:
+    # TODO: 실제 GitHub 저장소 URL로 교체 필요
+    - https://github.com/AnByoungHyun/git-argocd-lecture.git
+
+  # 배포 대상 클러스터 및 네임스페이스
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: apps
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+
+  # 허용된 K8s 리소스 종류
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: "apps"
+      kind: Deployment
+    - group: ""
+      kind: Service
+    - group: "networking.k8s.io"
+      kind: Ingress
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: ServiceAccount
+
+  # RBAC 역할 정의
+  roles:
+    - name: developer
+      description: "개발자 — 앱 동기화 및 조회 권한"
+      policies:
+        - p, proj:cicd-project:developer, applications, get, cicd-project/*, allow
+        - p, proj:cicd-project:developer, applications, sync, cicd-project/*, allow
+      groups: []
+    - name: admin
+      description: "관리자 — 전체 권한"
+      policies:
+        - p, proj:cicd-project:admin, applications, *, cicd-project/*, allow
+      groups: []

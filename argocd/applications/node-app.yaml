@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: node-app
+  namespace: argocd
+  labels:
+    app: node-app
+    app.kubernetes.io/name: node-app
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: cicd-project
+
+  source:
+    # TODO: 실제 GitHub 저장소 URL로 교체 필요
+    repoURL: https://github.com/AnByoungHyun/git-argocd-lecture.git
+    targetRevision: main
+    path: manifests/node-app
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

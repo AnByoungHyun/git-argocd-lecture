@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+  namespace: apps
+  labels:
+    app: python-app
+    app.kubernetes.io/name: python-app
+    app.kubernetes.io/version: "latest"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: python-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: python-app
+        app.kubernetes.io/name: python-app
+    spec:
+      # Non-root security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: python-app
+          # CI 파이프라인에서 ghcr.io/OWNER/python-app:<git-sha> 로 업데이트됨
+          image: ghcr.io/OWNER/python-app:PLACEHOLDER_SHA
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: APP_VERSION
+              value: "PLACEHOLDER_SHA"
+            - name: APP_ENV
+              value: "production"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          # Liveness Probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness Probe
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL

@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: python-app-ingress
+  namespace: apps
+  labels:
+    app: python-app
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: apps.local
+      http:
+        paths:
+          - path: /python(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: python-app-svc
+                port:
+                  number: 8000

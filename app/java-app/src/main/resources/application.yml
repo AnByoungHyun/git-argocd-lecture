@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: java-app
+  # Actuator 비활성화 (경량화)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.web.server.ManagementContextAutoConfiguration
+
+# 커스텀 앱 속성 (환경변수로 오버라이드 가능)
+app:
+  version: ${APP_VERSION:1.0.0}
+  environment: ${APP_ENV:production}
+
+# 404 처리를 위한 설정
+spring.mvc.throw-exception-if-no-handler-found: true
+spring.web.resources.add-mappings: false

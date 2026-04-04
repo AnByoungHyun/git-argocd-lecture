@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: java-app
+  namespace: argocd
+  labels:
+    app: java-app
+    app.kubernetes.io/name: java-app
+  finalizers:
+    # 앱 삭제 시 연관된 K8s 리소스도 함께 정리
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: cicd-project
+
+  source:
+    # TODO: 실제 GitHub 저장소 URL로 교체 필요
+    repoURL: https://github.com/AnByoungHyun/git-argocd-lecture.git
+    targetRevision: main
+    path: manifests/java-app
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+
+  syncPolicy:
+    automated:
+      prune: true       # Git에서 삭제된 리소스는 클러스터에서도 삭제
+      selfHeal: true    # 수동 변경 감지 시 Git 상태로 자동 복원
+    syncOptions:
+      - CreateNamespace=true   # apps 네임스페이스 자동 생성
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

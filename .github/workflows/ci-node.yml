@@ -1,0 +1,127 @@
+# ============================================================
+# CI 워크플로우: Node.js (Express) — app/node-app/
+# 관련 유즈케이스: UC-CI-001, UC-CI-002, UC-CI-003
+# ============================================================
+name: CI - Node.js App
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/node-app/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'app/node-app/**'
+
+# NFR-SEC-001: 시크릿은 GitHub Actions Secret으로 관리
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/node-app
+
+jobs:
+  # ──────────────────────────────────────────
+  # Job 1: 빌드 & 테스트 (FR-CI-002)
+  # ──────────────────────────────────────────
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: 코드 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Step 2: Node.js 18 환경 설정 (제약조건 §1, FR-NODE-003)
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/node-app/package-lock.json
+
+      # Step 3: 의존성 설치 (npm ci — 재현성 보장)
+      - name: Install dependencies
+        working-directory: app/node-app
+        run: npm ci
+
+      # Step 4: 단위 테스트 실행
+      # NFR-CI-005: 테스트 실패 시 즉시 파이프라인 종료 (fail-fast)
+      - name: Run tests
+        working-directory: app/node-app
+        run: npm test
+
+  # ──────────────────────────────────────────
+  # Job 2: Docker 이미지 빌드 & 푸시 (FR-CI-003, FR-CI-004)
+  # UC-CI-001: main push → 이미지 푸시
+  # UC-CI-002: PR → 빌드만 (push: false)
+  # UC-CI-003: 테스트 실패 시 이 Job 실행 안 됨
+  # ──────────────────────────────────────────
+  docker-build-push:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    # UC-CI-003: 테스트 성공 시에만 실행 (fail-fast 보장)
+    if: success()
+
+    steps:
+      # Step 1: 코드 체크아웃
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Step 2: Docker Buildx 설정 (레이어 캐시 활용 — NFR-CI-004)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3: GHCR 로그인 (push 이벤트 시에만)
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 4: 이미지 메타데이터 생성
+      # NFR-TAG-001: git SHA 태그
+      # NFR-TAG-002: main push 시 latest 태그 추가
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long,prefix=
+            type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+      # Step 5: Docker 이미지 빌드 & 푸시
+      # NFR-CI-004: cache-from/cache-to로 레이어 캐시 활용
+      # UC-CI-002: PR 시 push=false (빌드만), main push 시 push=true
+      - name: Build and push Docker image
+        id: docker_build
+        uses: docker/build-push-action@v5
+        with:
+          context: app/node-app
+          file: app/node-app/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # NFR-CI-004: GitHub Actions 캐시 레이어 활용
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Step 6: 이미지 digest 요약 출력
+      - name: Image digest summary
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "### ✅ Node.js App Docker Image Pushed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA Tag**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Digest**: ${{ steps.docker_build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
