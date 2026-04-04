@@ -50,7 +50,8 @@ jobs:
       # Step 3: Maven 의존성 설치 + 단위 테스트 실행
       # NFR-CI-005: 테스트 실패 시 즉시 파이프라인 종료 (fail-fast)
       - name: Run tests with Maven
-        run: ./mvnw -f app/java-app/pom.xml test --no-transfer-progress
+        working-directory: app/java-app
+        run: ./mvnw test --no-transfer-progress
 
   # ──────────────────────────────────────────
   # Job 2: Docker 이미지 빌드 & 푸시 (FR-CI-003, FR-CI-004)
