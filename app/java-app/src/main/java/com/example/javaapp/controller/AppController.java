@@ -1,15 +1,17 @@
 package com.example.javaapp.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 앱 기본 API 컨트롤러
+ * 예외 처리는 GlobalExceptionHandler(@RestControllerAdvice)가 담당
+ */
 @RestController
 public class AppController {
 
@@ -35,7 +37,7 @@ public class AppController {
     }
 
     // ----------------------------------------------------------------
-    // GET /health — 헬스체크
+    // GET /health — 헬스체크 (K8s liveness/readiness probe)
     // ----------------------------------------------------------------
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
@@ -44,42 +46,5 @@ public class AppController {
         body.put("app", "java-app");
         body.put("version", appVersion);
         return ResponseEntity.ok(body);
-    }
-
-    // ----------------------------------------------------------------
-    // 404 — 존재하지 않는 경로
-    // ----------------------------------------------------------------
-    @ExceptionHandler(NoHandlerFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(
-            NoHandlerFoundException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.NOT_FOUND, "Not Found", request.getRequestURI());
-    }
-
-    // ----------------------------------------------------------------
-    // 405 — 허용되지 않는 메서드
-    // ----------------------------------------------------------------
-    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
-    public ResponseEntity<Map<String, Object>> handleMethodNotAllowed(
-            org.springframework.web.HttpRequestMethodNotSupportedException ex,
-            HttpServletRequest request) {
-        return buildError(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed", request.getRequestURI());
-    }
-
-    // ----------------------------------------------------------------
-    // 500 — 공통 에러 핸들러
-    // ----------------------------------------------------------------
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleInternalError(
-            Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", request.getRequestURI());
-    }
-
-    private ResponseEntity<Map<String, Object>> buildError(HttpStatus status, String message, String path) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("status", "error");
-        body.put("code", status.value());
-        body.put("message", message);
-        body.put("path", path);
-        return ResponseEntity.status(status).body(body);
     }
 }
