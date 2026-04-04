@@ -19,3 +19,6 @@ __pycache__/
 *.pyc
 *.class
 .pytest_cache/
+
+# 에이전트 통신 로그 (로컬 전용)
+.agents/message-log.md

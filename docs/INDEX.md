@@ -2,7 +2,7 @@
 
 > 이 파일은 모든 에이전트가 작업 전 참조하는 문서 맵입니다.  
 > docs 에이전트가 문서를 추가/수정할 때마다 이 인덱스를 갱신합니다.  
-> 최종 수정: 2026-04-04
+> 최종 수정: 2026-04-04 (Phase 4 최종 완료)
 
 ---
 
@@ -20,9 +20,20 @@
 
 ## 가이드 (단계별 재현 가이드)
 
-| 문서 | 설명 | 상태 |
-|------|------|------|
-| _(가이드 문서가 여기에 추가됩니다)_ | — | 🔜 예정 |
+> 상태 범례: 🏗️ 골격 생성 완료 | ✏️ 이론/실습 작성 중 | ✅ 완료  
+> **Phase 4 완료 기준: 모든 가이드 ✅ 완료 (Mermaid 다이어그램 포함)**
+
+| 번호 | 문서 | 설명 | 상태 |
+|------|------|------|------|
+| 00 | [전체 과정 소개](guides/00-overview.md) | 아키텍처, 기술 스택, 학습 흐름, 사전 지식 | ✅ 완료 |
+| 01 | [사전 준비](guides/01-prerequisites.md) | 도구 설치, 버전 확인, GitHub 저장소 준비 | ✅ 완료 |
+| 02 | [샘플 앱 구조 이해](guides/02-sample-apps.md) | 3개 앱 코드 분석, 로컬 실행, API 응답 확인 | ✅ 완료 |
+| 03 | [Dockerfile + 이미지 빌드](guides/03-dockerize.md) | 멀티스테이지 빌드 분석, 로컬 빌드, GHCR 푸시 | ✅ 완료 |
+| 04 | [GitHub Actions CI](guides/04-github-actions.md) | 워크플로우 구조, 트리거, 시크릿, 실행 확인 | ✅ 완료 |
+| 05 | [K8s 매니페스트](guides/05-k8s-manifests.md) | Deployment/Service/Ingress 분석, 리소스 제한, probe | ✅ 완료 |
+| 06 | [Rancher Desktop + ArgoCD](guides/06-rancher-argocd.md) | 클러스터 구성, Ingress Controller, ArgoCD 설치/설정 | ✅ 완료 |
+| 07 | [GitOps 배포 실습](guides/07-gitops-deploy.md) | 전체 파이프라인 E2E 체험, self-healing, 롤백 | ✅ 완료 |
+| 09 | [(심화) AWS EKS 전환](guides/09-aws-eks.md) | EKS 클러스터 생성, 매니페스트 수정, 전환 검증 | ✅ 완료 |
 
 ---
 
@@ -87,7 +98,20 @@
 | Phase 2-2 | CI 워크플로우 (GitHub Actions) | ci | ✅ 완료 |
 | Phase 2-3 | K8s 매니페스트 + ArgoCD 설정 | cd | ✅ 완료 |
 | **Phase 2 전체** | **앱 개발 + CI + CD 설정** | **app/ci/cd** | **✅ 완료** |
-| Phase 3 | 인프라 구성 (Rancher Desktop / k3s) | infra | ⏳ 예정 |
-| Phase 4 | 시뮬레이션 검증 (E2E) | simulator | ⏳ 예정 |
-| Phase 5 | AWS EKS 전환 | infra | ⏳ 예정 |
-| guides/ | 단계별 재현 가이드 | docs | 🔜 각 Phase 완료 시 순차 작성 |
+| Phase 3 | 인프라 구성 + 3개 앱 배포 확인 | infra | ✅ 최종 완료 |
+| Phase 4 | 교육 가이드 완성 (9개 가이드, 15 Mermaid 블록) | docs | ✅ 완료 |
+| Phase 5 | AWS EKS 전환 | infra | ⏳ 예정 (가이드 문서 준비 완료 → 09-aws-eks.md) |
+
+---
+
+## 운영 접근 정보 (Phase 3 완료 기준)
+
+| 항목 | 값 |
+|------|-----|
+| ArgoCD UI | https://192.168.64.2:31853 |
+| java-app | http://apps.local/java |
+| node-app | http://apps.local/node |
+| python-app | http://apps.local/python |
+| GitHub 저장소 | https://github.com/AnByoungHyun/git-argocd-lecture |
+
+> `/etc/hosts`에 `192.168.64.2 apps.local` 등록 필요
