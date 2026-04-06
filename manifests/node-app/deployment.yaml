@@ -34,7 +34,7 @@ spec:
       containers:
         - name: node-app
           # CI 파이프라인에서 ghcr.io/OWNER/node-app:<git-sha> 로 업데이트됨
-          image: ghcr.io/anbyounghyun/node-app:latest
+          image: ghcr.io/anbyounghyun/node-app:74137480683dd3dc95facbc6275599f3574d9aec
           imagePullPolicy: Always
           ports:
             - name: http
@@ -42,7 +42,7 @@ spec:
               protocol: TCP
           env:
             - name: APP_VERSION
-              value: "PLACEHOLDER_SHA"
+              value: "7413748"
             - name: APP_ENV
               value: "production"
           resources:
