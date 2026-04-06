@@ -5,7 +5,7 @@ const express = require('express');
 const app = express();
 
 const APP_NAME    = 'node-app';
-const APP_VERSION = process.env.APP_VERSION || '1.0.0';
+const APP_VERSION = process.env.APP_VERSION || '1.1.0';
 const APP_ENV     = process.env.APP_ENV     || 'production';
 const PORT        = parseInt(process.env.PORT || '3000', 10);
 
