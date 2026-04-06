@@ -1,22 +1,51 @@
 # API 명세 개요
 
-> 문서 버전: 1.0.0  
-> 최종 수정: 2026-04-04  
-> 작성: docs 에이전트  
+> 문서 버전: 1.1.0
+> 최종 수정: 2026-04-06
+> 작성: docs 에이전트
 > 관련 요구사항: [기능 요구사항 §1](../requirements/functional.md), [제약조건 §1](../requirements/constraints.md)
 
 ---
 
 ## 1. 개요
 
-본 프로젝트는 GitOps CI/CD 파이프라인 검증을 위한 **Stateless 샘플 애플리케이션** 3개로 구성된다.  
+본 프로젝트는 GitOps CI/CD 파이프라인 검증을 위한 **Stateless 샘플 애플리케이션** 3개로 구성된다.
 DB 연동이 없으며, 각 앱은 공통된 엔드포인트 구조를 따른다.
 
-| 앱 | 언어 / 프레임워크 | 로컬 포트 | K8s Ingress 경로 |
-|----|-----------------|---------|----------------|
+| 앱 | 언어 / 프레임워크 | 로컬 포트 | Ingress 경로 |
+|----|-----------------|-----------|-------------|
 | java-app | Java 17 / Spring Boot 3.x | `8080` | `/java` |
 | node-app | Node.js 18+ / Express | `3000` | `/node` |
 | python-app | Python 3.11+ / FastAPI | `8000` | `/python` |
+
+### 전체 API 구조
+
+```mermaid
+graph TD
+    subgraph Apps["샘플 앱"]
+        JA["java-app\n:8080"]
+        NA["node-app\n:3000"]
+        PA["python-app\n:8000"]
+    end
+    subgraph EP["공통 엔드포인트"]
+        E1["GET /"]
+        E2["GET /health"]
+    end
+    subgraph Resp["응답"]
+        R1["200 OK\n앱 정보 JSON"]
+        R2["200 OK\nstatus: ok"]
+        R3["500 Error\nstatus: error"]
+    end
+    JA --> E1
+    NA --> E1
+    PA --> E1
+    JA --> E2
+    NA --> E2
+    PA --> E2
+    E1 --> R1
+    E2 --> R2
+    E2 --> R3
+```
 
 ---
 
@@ -26,20 +55,18 @@ DB 연동이 없으며, 각 앱은 공통된 엔드포인트 구조를 따른다
 
 - 모든 응답은 **JSON** 형식 (`Content-Type: application/json`)
 - 문자 인코딩: **UTF-8**
-- 날짜/시간 형식: **ISO 8601** (`2026-04-04T00:00:00Z`)
+- 날짜/시간 형식: **ISO 8601** (`2026-04-06T00:00:00Z`)
 
-### 2.2 HTTP 상태 코드 규칙
+### 2.2 HTTP 상태 코드
 
-| 상태 코드 | 의미 | 사용 시점 |
-|---------|------|---------|
+| 코드 | 의미 | 사용 시점 |
+|------|------|---------|
 | `200 OK` | 정상 응답 | 모든 정상 GET 요청 |
 | `404 Not Found` | 리소스 없음 | 존재하지 않는 경로 요청 |
-| `405 Method Not Allowed` | 허용되지 않는 메서드 | POST/PUT/DELETE 요청 시 |
-| `500 Internal Server Error` | 서버 내부 오류 | 예상치 못한 서버 오류 |
+| `405 Method Not Allowed` | 허용되지 않는 메서드 | POST/PUT/DELETE 요청 |
+| `500 Internal Server Error` | 서버 내부 오류 | 예상치 못한 오류 |
 
 ### 2.3 에러 응답 형식
-
-모든 에러 응답은 아래 형식을 따른다.
 
 ```json
 {
@@ -88,50 +115,35 @@ Host: <app-host>
 #### 응답 필드 정의
 
 | 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `app` | `string` | ✅ | 앱 식별 이름 (`java-app`, `node-app`, `python-app`) |
+|------|------|:----:|------|
+| `app` | `string` | ✅ | 앱 식별 이름 |
 | `version` | `string` | ✅ | 앱 버전 (예: `"1.0.0"`) |
-| `language` | `string` | ✅ | 구현 언어 (`"Java"`, `"Node.js"`, `"Python"`) |
+| `language` | `string` | ✅ | 구현 언어 |
 | `framework` | `string` | ✅ | 사용 프레임워크 |
 | `port` | `integer` | ✅ | 앱 실행 포트 |
-| `environment` | `string` | 선택 | 실행 환경 (`"development"`, `"production"`) |
+| `environment` | `string` | — | 실행 환경 (`"development"` / `"production"`) |
 
 #### 앱별 응답 예시
 
-**java-app (포트 8080)**
+**java-app (port 8080)**
+
 ```json
-{
-  "app": "java-app",
-  "version": "1.0.0",
-  "language": "Java",
-  "framework": "Spring Boot 3.x",
-  "port": 8080,
-  "environment": "production"
-}
+{ "app": "java-app", "version": "1.0.0", "language": "Java",
+  "framework": "Spring Boot 3.x", "port": 8080, "environment": "production" }
 ```
 
-**node-app (포트 3000)**
+**node-app (port 3000)**
+
 ```json
-{
-  "app": "node-app",
-  "version": "1.0.0",
-  "language": "Node.js",
-  "framework": "Express",
-  "port": 3000,
-  "environment": "production"
-}
+{ "app": "node-app", "version": "1.0.0", "language": "Node.js",
+  "framework": "Express", "port": 3000, "environment": "production" }
 ```
 
-**python-app (포트 8000)**
+**python-app (port 8000)**
+
 ```json
-{
-  "app": "python-app",
-  "version": "1.0.0",
-  "language": "Python",
-  "framework": "FastAPI",
-  "port": 8000,
-  "environment": "production"
-}
+{ "app": "python-app", "version": "1.0.0", "language": "Python",
+  "framework": "FastAPI", "port": 8000, "environment": "production" }
 ```
 
 ---
@@ -150,42 +162,52 @@ Host: <app-host>
 #### 응답 (200 OK) — 정상
 
 ```json
-{
-  "status": "ok",
-  "app": "java-app",
-  "version": "1.0.0"
-}
+{ "status": "ok", "app": "java-app", "version": "1.0.0" }
 ```
 
 #### 응답 (500 Internal Server Error) — 비정상
 
 ```json
-{
-  "status": "error",
-  "app": "java-app",
-  "version": "1.0.0",
-  "message": "Service unavailable"
-}
+{ "status": "error", "app": "java-app", "version": "1.0.0",
+  "message": "Service unavailable" }
 ```
 
 #### 응답 필드 정의
 
 | 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `status` | `string` | ✅ | `"ok"` (정상) 또는 `"error"` (비정상) |
+|------|------|:----:|------|
+| `status` | `string` | ✅ | `"ok"` (정상) / `"error"` (비정상) |
 | `app` | `string` | ✅ | 앱 식별 이름 |
 | `version` | `string` | ✅ | 앱 버전 |
-| `message` | `string` | 선택 | 비정상 시 오류 메시지 |
+| `message` | `string` | — | 비정상 시 오류 메시지 |
 
-#### K8s Probe 설정 연동
+#### Probe 연동 흐름
+
+```mermaid
+sequenceDiagram
+    participant K as K8s kubelet
+    participant C as Container
+
+    loop periodSeconds마다
+        K->>C: HTTP GET /health
+        alt 200 OK
+            C-->>K: {"status": "ok"}
+            Note over K: liveness 유지<br/>readiness 트래픽 수신
+        else 500 Error
+            C-->>K: {"status": "error"}
+            Note over K: liveness → Pod 재시작<br/>readiness → 트래픽 차단
+        end
+    end
+```
+
+#### K8s Probe 설정 예시
 
 ```yaml
-# Deployment에서 /health 엔드포인트 활용
 livenessProbe:
   httpGet:
     path: /health
-    port: 8080          # 앱별 포트 사용
-  initialDelaySeconds: 30   # java-app: 30s, node/python: 10s
+    port: 8080        # 앱별 포트
+  initialDelaySeconds: 30   # java: 30s / node·python: 10s
   periodSeconds: 10
   failureThreshold: 3
 
@@ -204,14 +226,27 @@ readinessProbe:
 
 ### 4.1 경로 규칙
 
-클러스터 내부에서는 각 앱의 Service 포트로 직접 접근하고,  
+클러스터 내부에서는 각 앱의 Service 포트로 직접 접근하고,
 외부에서는 Ingress를 통해 경로 기반으로 라우팅한다.
 
-| 외부 경로 | 대상 Service | 대상 포트 | 앱 |
-|---------|------------|---------|---|
-| `/java` 또는 `/java/*` | `java-app-svc` | `8080` | java-app |
-| `/node` 또는 `/node/*` | `node-app-svc` | `3000` | node-app |
-| `/python` 또는 `/python/*` | `python-app-svc` | `8000` | python-app |
+| 외부 경로 | 대상 Service | 대상 포트 |
+|----------|-------------|---------|
+| `/java` 또는 `/java/*` | `java-app-svc` | `8080` |
+| `/node` 또는 `/node/*` | `node-app-svc` | `3000` |
+| `/python` 또는 `/python/*` | `python-app-svc` | `8000` |
+
+#### Ingress 라우팅 흐름
+
+```mermaid
+graph LR
+    CL["외부 클라이언트"] --> ING["Ingress\napps.local"]
+    ING --> |"/java"| SVC1["java-app-svc\n:8080"]
+    ING --> |"/node"| SVC2["node-app-svc\n:3000"]
+    ING --> |"/python"| SVC3["python-app-svc\n:8000"]
+    SVC1 --> POD1["java Pod"]
+    SVC2 --> POD2["node Pod"]
+    SVC3 --> POD3["python Pod"]
+```
 
 ### 4.2 Ingress 매니페스트 예시
 
@@ -226,7 +261,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: apps.local          # 로컬 k3s 도메인 (EKS 전환 시 실제 도메인으로 변경)
+    - host: apps.local
       http:
         paths:
           - path: /java(/|$)(.*)
@@ -254,14 +289,14 @@ spec:
 
 ### 4.3 경로 접근 예시
 
-| 요청 URL | 실제 라우팅 | 설명 |
-|---------|-----------|------|
-| `GET http://apps.local/java` | `java-app-svc:8080/` | java-app 기본 정보 |
-| `GET http://apps.local/java/health` | `java-app-svc:8080/health` | java-app 헬스체크 |
-| `GET http://apps.local/node` | `node-app-svc:3000/` | node-app 기본 정보 |
-| `GET http://apps.local/node/health` | `node-app-svc:3000/health` | node-app 헬스체크 |
-| `GET http://apps.local/python` | `python-app-svc:8000/` | python-app 기본 정보 |
-| `GET http://apps.local/python/health` | `python-app-svc:8000/health` | python-app 헬스체크 |
+| 요청 URL | 실제 라우팅 대상 |
+|---------|----------------|
+| `GET http://apps.local/java` | `java-app-svc:8080/` |
+| `GET http://apps.local/java/health` | `java-app-svc:8080/health` |
+| `GET http://apps.local/node` | `node-app-svc:3000/` |
+| `GET http://apps.local/node/health` | `node-app-svc:3000/health` |
+| `GET http://apps.local/python` | `python-app-svc:8000/` |
+| `GET http://apps.local/python/health` | `python-app-svc:8000/health` |
 
 ### 4.4 로컬 vs EKS 환경 차이
 
@@ -277,7 +312,7 @@ spec:
 ## 5. 앱별 포트 요약
 
 | 앱 | 컨테이너 포트 | Service 포트 | Ingress 경로 |
-|----|------------|------------|------------|
+|----|:-----------:|:-----------:|------------|
 | java-app | `8080` | `8080` | `/java` |
 | node-app | `3000` | `3000` | `/node` |
 | python-app | `8000` | `8000` | `/python` |
@@ -306,29 +341,39 @@ curl http://localhost:8000/health
 
 ## 7. 구현 참고 사항
 
-### 7.1 각 앱별 응답 구현 포인트
+### 7.1 앱별 라우트 구현 포인트
 
-| 앱 | `/` 구현 힌트 | `/health` 구현 힌트 |
-|----|-------------|------------------|
-| java-app | `@RestController` + `@GetMapping("/")` | `@GetMapping("/health")` |
-| node-app | `app.get('/', ...)` | `app.get('/health', ...)` |
-| python-app | `@app.get("/")` | `@app.get("/health")` |
+**GET / 구현**
+
+| 앱 | 구현 방법 |
+|----|---------|
+| java-app | `@RestController` + `@GetMapping("/")` |
+| node-app | `app.get('/', handler)` |
+| python-app | `@app.get("/")` |
+
+**GET /health 구현**
+
+| 앱 | 구현 방법 |
+|----|---------|
+| java-app | `@GetMapping("/health")` |
+| node-app | `app.get('/health', handler)` |
+| python-app | `@app.get("/health")` |
 
 ### 7.2 환경 변수로 버전 주입 (권장)
 
 컨테이너 이미지 빌드 시 git SHA를 환경 변수로 주입하여 응답에 활용:
 
 ```yaml
-# Deployment 환경 변수 예시
+# Deployment 환경 변수
 env:
   - name: APP_VERSION
-    value: "a1b2c3d"     # CI에서 git SHA로 치환
+    value: "a1b2c3d"   # CI에서 git SHA로 치환
   - name: APP_ENV
     value: "production"
 ```
 
-```bash
-# 빌드 시 ARG로 주입 (Dockerfile)
+```dockerfile
+# Dockerfile — 빌드 시 ARG로 주입
 ARG APP_VERSION=latest
 ENV APP_VERSION=${APP_VERSION}
 ```
