@@ -1,6 +1,6 @@
 # 프로젝트 진행 상황
 
-> 최종 수정: 2026-04-04 (Phase 4 완료)  
+> 최종 수정: 2026-04-06 (CI E2E 자동화, HTML 엔드포인트, 가이드 업데이트)  
 > 작성/관리: docs 에이전트  
 > 갱신 주기: 각 에이전트 작업 완료 시 orchestrator 지시에 따라 갱신
 
@@ -82,7 +82,7 @@
 
 | 항목 | 구현 내용 |
 |------|---------|
-| **엔드포인트** | `GET /` — 앱 정보 JSON, `GET /health` — 헬스체크 JSON |
+| **엔드포인트** | `GET /` — HTML 웹페이지(배경색), `GET /api` — 앱 정보 JSON, `GET /health` — 헬스체크 JSON |
 | **응답 형식** | `docs/api/overview.md` 명세와 일치 (status/app/version 필드) |
 | **에러 처리** | 공통 에러 응답 형식 (404/405 핸들링) |
 | **보안** | non-root 사용자로 컨테이너 실행 |
@@ -102,8 +102,9 @@
 | `.github/workflows/ci-node.yml` | 127줄 | Node.js 앱 CI 워크플로우 |
 | `.github/workflows/ci-python.yml` | 127줄 | Python 앱 CI 워크플로우 |
 
-**주요 구현**: 2-Job 구조 (`build-and-test` → `docker-build-push`), path 필터 독립 트리거,  
-PR 빌드/테스트만 실행, main push 시 GHCR `SHA+latest` 이중 태그, `type=gha` 캐시  
+**주요 구현**: 3-Job 체인 (`build-and-test` → `docker-build-push` → `update-manifest`), path 필터 독립 트리거,  
+PR 빌드/테스트만 실행, main push 시 GHCR `SHA+latest` 이중 태그, `type=gha` 캐시,  
+`update-manifest` Job으로 매니페스트 SHA 완전 자동 갱신 (awk + git commit + rebase)  
 **요구사항**: FR-CI-001~007, NFR-CI-001~005, UC-CI-001~003 전항목 ✅ 충족
 
 ---
@@ -178,9 +179,9 @@ imagePullSecrets, ArgoCD `auto-sync + prune + selfHeal + CreateNamespace`
 
 ```
 ArgoCD UI  : https://192.168.64.2:31853
-java-app   : http://apps.local/java        (GET /, GET /health)
-node-app   : http://apps.local/node        (GET /, GET /health)
-python-app : http://apps.local/python      (GET /, GET /health)
+java-app   : http://apps.local/java        (GET / HTML, GET /java/api JSON, GET /java/health JSON)
+node-app   : http://apps.local/node        (GET / HTML, GET /node/api JSON, GET /node/health JSON)
+python-app : http://apps.local/python      (GET / HTML, GET /python/api JSON, GET /python/health JSON)
 GitHub     : https://github.com/AnByoungHyun/git-argocd-lecture
 ```
 
@@ -228,6 +229,16 @@ GitHub     : https://github.com/AnByoungHyun/git-argocd-lecture
 | Java `GlobalExceptionHandler` 분리 | `02-sample-apps.md` — 에러 핸들러 구조 설명 포함 |
 | GHCR visibility 설정 | `03-dockerize.md` — GHCR Public 설정 절차 명시 |
 | CI `working-directory` 오류 | `04-github-actions.md` — working-directory 설정 예시 포함 |
+
+### Phase 4 이후 가이드 추가 업데이트 (2026-04-06)
+
+| 업데이트 | 대상 파일 | 내용 |
+|---------|---------|------|
+| E2E CI 자동화 반영 | `04-github-actions.md` v1.1.0 | `update-manifest` Job (3-Job 체인) 이론/실습/체크리스트 추가 |
+| E2E 배포 실습 반영 | `07-gitops-deploy.md` v1.1.0 | Step 5 수동→CI 자동으로 전면 재작성, git log 확인 추가 |
+| HTML 엔드포인트 추가 | `02-sample-apps.md` | GET / → HTML 웹페이지, GET /api → JSON으로 분리 |
+| API 명세 갱신 | `api/overview.md` v1.2.0 | 3-엔드포인트 구조, 앱별 배경색 표, ASCII Art 다이어그램 |
+| Mermaid → ASCII Art | 00/04/05/07 가이드 | 렌더링 호환성 개선 (총 15블록 전환) |
 
 ### 가이드 상태
 

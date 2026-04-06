@@ -29,10 +29,10 @@
 | 01 | [사전 준비](guides/01-prerequisites.md) | 도구 설치, 버전 확인, GitHub 저장소 준비 | ✅ 완료 |
 | 02 | [샘플 앱 구조 이해](guides/02-sample-apps.md) | 3개 앱 코드 분석, 로컬 실행, API 응답 확인 | ✅ 완료 |
 | 03 | [Dockerfile + 이미지 빌드](guides/03-dockerize.md) | 멀티스테이지 빌드 분석, 로컬 빌드, GHCR 푸시 | ✅ 완료 |
-| 04 | [GitHub Actions CI](guides/04-github-actions.md) | 워크플로우 구조, 트리거, 시크릿, 실행 확인 | ✅ 완료 |
+| 04 | [GitHub Actions CI](guides/04-github-actions.md) | 워크플로우 구조, 트리거, 3-Job 체인(update-manifest), 실행 확인 | ✅ 완료 |
 | 05 | [K8s 매니페스트](guides/05-k8s-manifests.md) | Deployment/Service/Ingress 분석, 리소스 제한, probe | ✅ 완료 |
 | 06 | [Rancher Desktop + ArgoCD](guides/06-rancher-argocd.md) | 클러스터 구성, Ingress Controller, ArgoCD 설치/설정 | ✅ 완료 |
-| 07 | [GitOps 배포 실습](guides/07-gitops-deploy.md) | 전체 파이프라인 E2E 체험, self-healing, 롤백 | ✅ 완료 |
+| 07 | [GitOps 배포 실습](guides/07-gitops-deploy.md) | E2E 파이프라인 완전 자동화 체험, self-healing, 롤백 | ✅ 완료 |
 | 09 | [(심화) AWS EKS 전환](guides/09-aws-eks.md) | EKS 클러스터 생성, 매니페스트 수정, 전환 검증 | ✅ 완료 |
 
 ---

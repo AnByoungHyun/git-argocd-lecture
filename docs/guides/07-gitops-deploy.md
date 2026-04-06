@@ -1,8 +1,8 @@
 # 07. GitOps 배포 실습 — 전체 파이프라인 연동
 
-> 가이드 버전: 1.0.0  
-> 최종 수정: 2026-04-04  
-> 상태: ✅ 실습 단계 작성 완료  
+> 가이드 버전: 1.1.0  
+> 최종 수정: 2026-04-06  
+> 상태: ✅ 완료 (E2E CI 자동화, update-manifest 반영)  
 > 이전 가이드: [06. Rancher Desktop + ArgoCD](06-rancher-argocd.md) | 다음 가이드: [09. AWS EKS 전환](09-aws-eks.md)
 
 ---
@@ -525,61 +525,56 @@ Image tag: ghcr.io/username/node-app:abc1234567890abcdef1234567890abcdef123456
 
 ---
 
-### Step 5: 매니페스트 이미지 태그 업데이트
+### Step 5: 매니페스트 이미지 태그 자동 업데이트 확인
 
-GitOps의 핵심: **Git이 배포의 단일 진실 소스**입니다.  
-새 이미지가 배포되려면 매니페스트의 이미지 태그를 업데이트해야 합니다.
+> 💡 **E2E 자동화 완성**: Step 3에서 `git push`를 하면 CI의 `update-manifest` Job이  
+> 자동으로 `manifests/node-app/deployment.yaml`의 이미지 태그를 갱신하고 커밋합니다.  
+> **사람이 직접 매니페스트를 수정할 필요가 없습니다.**
+
+**CI 완료 후 자동 커밋 확인:**
 
 ```bash
 cd ~/workspace/git-argocd-lecture
 
-# 현재 이미지 태그 확인
+# 원격 변경 가져오기 (CI가 자동 커밋한 내용)
+git pull origin main
+
+# CI가 만든 커밋 확인
+git log --oneline manifests/node-app/ | head -5
+```
+
+```
+예상 출력:
+abc1234 ci: update node-app image to abc1234   ← CI가 자동 생성한 커밋
+xyz9012 initial commit: add node-app manifests
+```
+
+```bash
+# 매니페스트에 새 SHA가 반영됐는지 확인
 grep "image:" manifests/node-app/deployment.yaml
 ```
 
 ```
 예상 출력:
-          image: ghcr.io/anbyounghyun/node-app:latest
+          image: ghcr.io/username/node-app:abc1234def5678...   ← Full SHA (40자)
 ```
 
 ```bash
-# 이미지 태그를 새 SHA로 업데이트
-# 방법 1: sed로 자동 업데이트
-NEW_SHA=$(git rev-parse HEAD)
-sed -i '' \
-  "s|image: ghcr.io/anbyounghyun/node-app:.*|image: ghcr.io/$GITHUB_USERNAME/node-app:$NEW_SHA|" \
-  manifests/node-app/deployment.yaml
-
-# APP_VERSION 환경변수도 업데이트
-SHORT_SHA=$(git rev-parse --short HEAD)
-sed -i '' \
-  "s|value: \"PLACEHOLDER_SHA\"|value: \"$SHORT_SHA\"|" \
-  manifests/node-app/deployment.yaml
-
-# 변경 확인
-grep -A 2 "image:\|APP_VERSION" manifests/node-app/deployment.yaml
+# APP_VERSION도 Short SHA(7자리)로 갱신됐는지 확인
+grep -A 2 "APP_VERSION" manifests/node-app/deployment.yaml
 ```
 
 ```
 예상 출력:
-          image: ghcr.io/username/node-app:abc1234...   ← 새 SHA
             - name: APP_VERSION
-              value: "abc1234"                           ← Short SHA
+              value: "abc1234"   ← Short SHA 7자리
 ```
 
-```bash
-# 변경 커밋 + 푸시
-git add manifests/node-app/deployment.yaml
-git commit -m "deploy(node-app): update image to $SHORT_SHA"
-git push origin main
-```
+> 📌 **동작 원리**: GitHub Actions `update-manifest` Job이 `awk`로 이미지 태그를  
+> 갱신한 후 `git commit` + `git push`합니다. 동일 SHA가 이미 적용된 경우  
+> `git diff --quiet && exit 0`으로 빈 커밋이 생성되지 않습니다 (멱등성).
 
-```
-예상 출력:
-[main def5678] deploy(node-app): update image to abc1234
-```
-
-✅ **확인**: `manifests/node-app/deployment.yaml`에 새 이미지 SHA 반영 후 push 완료
+✅ **확인**: `ci: update node-app image to <SHA>` 커밋이 자동 생성됨, 매니페스트에 Full SHA 반영 확인
 
 ---
 
@@ -762,7 +757,7 @@ git log --oneline manifests/node-app/ | head -5
 
 ```
 예상 출력:
-def5678 deploy(node-app): update image to abc1234  ← 현재 (되돌릴 커밋)
+def5678 ci: update node-app image to abc1234   ← CI 자동 커밋 (되돌릴 대상)
 xyz9012 initial commit: add node-app manifests
 ```
 
@@ -776,8 +771,8 @@ git log --oneline manifests/node-app/ | head -3
 
 ```
 예상 출력:
-ghi3456 Revert "deploy(node-app): update image to abc1234"
-def5678 deploy(node-app): update image to abc1234
+ghi3456 Revert "ci: update node-app image to abc1234"
+def5678 ci: update node-app image to abc1234
 xyz9012 initial commit: add node-app manifests
 ```
 
@@ -836,10 +831,10 @@ Step 2  코드 수정 (app.js - description 추가)
 Step 3  git push origin main
   │
 Step 4  GitHub Actions CI 자동 실행
-  │       build-and-test ✅ → docker-build-push ✅
-  │       GHCR에 새 이미지 등록
+  │       build-and-test ✅ → docker-build-push ✅ → update-manifest ✅
+  │       GHCR에 새 이미지 등록 + manifests/ 자동 커밋
   │
-Step 5  manifests/ 이미지 태그 업데이트 + push
+Step 5  CI update-manifest Job → manifests/ SHA 자동 갱신 + push
   │
 Step 6  ArgoCD 자동 감지 → OutOfSync → Syncing → Synced
   │
@@ -883,9 +878,10 @@ python-app   Synced        Healthy
 ## ✅ 확인 체크리스트
 
 - [ ] Step3: 코드 수정 후 `git push` → `CI - Node.js App` 자동 트리거 확인
-- [ ] Step4: `Build & Test` ✅ + `Docker Build & Push` ✅ 두 Job 모두 성공
+- [ ] Step4: `Build & Test` ✅ + `Docker Build & Push` ✅ + `Update Manifest` ✅ 3 Job 모두 성공
 - [ ] Step4: GHCR에 새 SHA 태그 이미지 등록 확인
-- [ ] Step5: `manifests/node-app/deployment.yaml` 이미지 태그 SHA로 업데이트 + push
+- [ ] Step5: `git pull` 후 `ci: update node-app image to <SHA>` 커밋 자동 생성 확인
+- [ ] Step5: `manifests/node-app/deployment.yaml` 이미지 Full SHA 자동 갱신 확인
 - [ ] Step6: ArgoCD `OutOfSync` → `Synced` 자동 전환 확인 (3분 이내)
 - [ ] Step6: 파드 RollingUpdate 관찰 (무중단 — 구 파드 종료 전 신규 파드 Ready)
 - [ ] Step7: `curl http://apps.local/node` — `description` 필드 포함 새 응답 확인

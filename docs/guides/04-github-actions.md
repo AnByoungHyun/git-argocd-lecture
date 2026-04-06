@@ -1,8 +1,8 @@
 # 04. GitHub Actions CI 파이프라인 구성
 
-> 가이드 버전: 1.0.0  
-> 최종 수정: 2026-04-04  
-> 상태: ✅ 실습 단계 작성 완료  
+> 가이드 버전: 1.1.0  
+> 최종 수정: 2026-04-06  
+> 상태: ✅ 완료 (3-Job 체인, update-manifest 추가)  
 > 이전 가이드: [03. Dockerfile 작성](03-dockerize.md) | 다음 가이드: [05. K8s 매니페스트](05-k8s-manifests.md)
 
 ---
@@ -42,6 +42,10 @@ Workflow  (.github/workflows/ci-java.yml)
         ├── Step 1: Checkout
         ├── Step 2: Docker Login
         └── Step 3: Build & Push
+    └── Job: update-manifest         ← main push시에만 실행
+        ├── Step 1: Checkout
+        ├── Step 2: image 태그 업데이트 (awk)
+        └── Step 3: git commit + push
 ```
 
 | 계층 | 역할 | 파일/키워드 |
@@ -53,7 +57,8 @@ Workflow  (.github/workflows/ci-java.yml)
 
 > ⚠️ **중요**: Job끼리는 **병렬 실행**이 기본입니다.  
 > 순서를 강제하려면 `needs: <이전 Job명>`을 명시해야 합니다.  
-> 이 프로젝트에서 `docker-build-push`가 `needs: build-and-test`를 사용하는 이유입니다.
+> 이 프로젝트에서 `docker-build-push`가 `needs: build-and-test`를,  
+> `update-manifest`가 `needs: docker-build-push`를 사용하는 이유입니다.
 
 ---
 
@@ -324,18 +329,22 @@ main push 시:
 
 #### 5-1. fail-fast: 테스트 실패 → 이미지 푸시 차단
 
-이 프로젝트에서 CI는 **2개의 Job**으로 나뉩니다.
+이 프로젝트에서 CI는 **3개의 Job**으로 나뉩니다.
 
 ```yaml
 jobs:
-  build-and-test:          # Job 1: 테스트
+  build-and-test:           # Job 1: 테스트
     steps:
-      - run: ./mvnw test   # 여기서 실패하면 이후 step 전체 중단
+      - run: ./mvnw test    # 여기서 실패하면 이후 step 전체 중단
         working-directory: app/java-app   # ← 실행 디렉토리 지정 (중요!)
 
-  docker-build-push:       # Job 2: 이미지 빌드 & 푸시
-    needs: build-and-test  # ← Job 1이 끝나야 실행 (의존성 선언)
-    if: success()          # ← Job 1이 성공했을 때만 실행
+  docker-build-push:        # Job 2: 이미지 빌드 & 푸시
+    needs: build-and-test   # ← Job 1이 끝나야 실행 (의존성 선언)
+    if: success()           # ← Job 1이 성공했을 때만 실행
+
+  update-manifest:          # Job 3: 매니페스트 자동 업데이트
+    needs: docker-build-push  # ← Job 2 성공 후 실행
+    if: github.ref == 'refs/heads/main'  # ← main push시에만
 ```
 
 > ⚠️ **`working-directory` 주의사항**: GitHub Actions Runner는 저장소 루트에서 시작합니다.  
@@ -344,20 +353,30 @@ jobs:
 > Node.js의 `setup-node` cache-dependency-path도 마찬가지로 `app/node-app/package-lock.json`으로 명시합니다.
 
 ```
-  [정상 흐름]                         [실패 흐름]
-  ┌──────────────────────┐           ┌──────────────────────┐
-  │ Job1: Build & Test   │           │ Job1: Build & Test   │
-  │       ✅ 성공        │           │       ❌ 실패        │
-  └──────────────────────┘           └──────────────────────┘
+  [정상 흐름 — main push]              [실패 흐름]
+  ┌──────────────────────┐            ┌──────────────────────┐
+  │ Job1: Build & Test   │            │ Job1: Build & Test   │
+  │       ✅ 성공        │            │       ❌ 실패        │
+  └──────────────────────┘            └──────────────────────┘
                │                                  │
-    needs 충족 + success()             needs 미충족 → 자동 스킵
+    needs 충족 + success()              needs 미충족 → 자동 스킵
                │                                  │
                ▼                                  ▼
-  ┌──────────────────────┐           ┌──────────────────────┐
-  │ Job2: Docker Push    │           │ Job2: Docker Push    │
-  │       ✅ 실행        │           │       ⊘ 스킵         │
-  │  app:SHA GHCR 등록   │           │   GHCR 변경 없음     │
-  └──────────────────────┘           └──────────────────────┘
+  ┌──────────────────────┐            ┌──────────────────────┐
+  │ Job2: Docker Push    │            │ Job2: Docker Push    │
+  │       ✅ 실행        │            │       ⊘ 스킵         │
+  │  app:SHA GHCR 등록   │            │   GHCR 변경 없음     │
+  └──────────────────────┘            └──────────────────────┘
+               │
+    if: github.ref == main
+               │
+               ▼
+  ┌──────────────────────┐
+  │ Job3: Update Manifest│
+  │       ✅ 실행        │
+  │  manifests/ SHA 갱신 │
+  │  ci: update 커밋 push│
+  └──────────────────────┘
 ```
 
 > 💡 `needs`만 있어도 동작하지만 `if: success()`를 함께 명시하면  
@@ -395,8 +414,74 @@ jobs:
 | **이미지 오염 방지** | main push 시에만 push=true | PR/실패 코드는 레지스트리에 도달 불가 |
 | **버전 추적** | git SHA 태그 사용 | 어떤 커밋의 이미지인지 항상 추적 가능 |
 | **latest 안전성** | main push 성공 시에만 latest 갱신 | latest = 항상 테스트 통과한 이미지 보장 |
+| **GitOps 자동화** | update-manifest Job | 매니페스트 SHA 업데이트 완전 자동화 |
 
 ---
+
+---
+
+#### 5-3. update-manifest Job — 매니페스트 자동 업데이트
+
+**역할**: `docker-build-push` 성공 후 `manifests/` 디렉토리의 `deployment.yaml`을  
+새 이미지 Full SHA와 Short SHA 7자리로 자동 갱신하고 커밋합니다.
+
+```yaml
+update-manifest:
+  needs: docker-build-push
+  if: github.ref == 'refs/heads/main'
+  permissions:
+    contents: write          # ← 저장소 쓰기 권한 (커밋·push 필수)
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update image tag
+      run: |
+        FULL_SHA=${{ github.sha }}
+        SHORT_SHA=${FULL_SHA:0:7}
+        APP=node-app
+        FILE=manifests/${APP}/deployment.yaml
+
+        # image 태그 갱신 (awk — sed보다 특수문자에 안전)
+        awk -v sha="$FULL_SHA" -v app="$APP" '
+          /image:.*/ && /app/ { sub(/:[^:]+$/, ":" sha) }
+          { print }
+        ' "$FILE" > tmp.yaml && mv tmp.yaml "$FILE"
+
+        # APP_VERSION 갱신 (Short SHA 7자리)
+        awk -v sha="$SHORT_SHA" '
+          /APP_VERSION/{found=1} found && /value:/{sub(/".*"/, "\"" sha "\""); found=0}
+          { print }
+        ' "$FILE" > tmp.yaml && mv tmp.yaml "$FILE"
+
+        # 멱등성: 변경 없으면 커밋 스킵
+        git diff --cached --quiet && git diff --quiet && exit 0
+
+        git config user.email 'github-actions@github.com'
+        git config user.name 'github-actions'
+        git add "$FILE"
+        git commit -m "ci: update ${APP} image to ${SHORT_SHA}"
+
+        # 동시 push 충돌 방지
+        git pull --rebase origin main
+        git push origin main
+```
+
+**핵심 설계 포인트**
+
+| 포인트 | 설명 |
+|--------|------|
+| `permissions: contents: write` | 기본 GITHUB_TOKEN은 읽기 전용 — 쓰기 명시 필수 |
+| `awk` 사용 | `sed`보다 특수문자(`/`, `:`) 처리가 안전하고 이식성이 높음 |
+| `git diff --quiet && exit 0` | 같은 SHA 재push 시 빈 커밋 방지 (멱등성) |
+| `git pull --rebase` | 3개 앱 동시 push 시 충돌 방지 |
+| `if: github.ref == main` | PR push에서는 실행 안 됨 — main 병합 후에만 동작 |
+
+> 💡 **path 필터 안전성**: `update-manifest` Job이 생성한 커밋은  
+> `manifests/` 경로를 변경하므로 `app/` path 필터가 없는 CI가 재트리거될 수 있습니다.  
+> 이를 방지하려면 커밋 메시지 `[skip ci]` 또는 `paths-ignore: manifests/`를 활용합니다.
+
 ---
 
 ## 🛠️ 실습 단계
@@ -526,10 +611,13 @@ CI - Python App  ← 미트리거
 Actions 탭 → `CI - Node.js App` 클릭 → 가장 최근 실행 클릭
 
 ```
-  ┌──────────────────┐   needs: build-and-test   ┌──────────────────────┐
-  │  Build & Test    │ ────────────────────────> │  Docker Build & Push │
-  │  ✅ 완료 ~1분    │   테스트 성공 후 실행      │  ✅ 완료 ~2~3분      │
-  └──────────────────┘                           └──────────────────────┘
+  ┌──────────────┐  needs  ┌──────────────────┐  needs  ┌─────────────────┐
+  │ Build & Test │ ──────> │ Docker Build &   │ ──────> │ Update Manifest │
+  │  ✅ ~1분     │         │ Push  ✅ ~2~3분  │         │  ✅ ~30초       │
+  └──────────────┘         └──────────────────┘         └─────────────────┘
+        │                         │                              │
+   테스트 통과                이미지 GHCR 등록             manifests/ SHA 갱신
+                                                         ci: update 커밋 push
 ```
 
 **각 Job의 Step 상세 확인**
@@ -548,6 +636,11 @@ Docker Build & Push Job:
   ✅ Extract Docker metadata
   ✅ Build and push Docker image
   ✅ Image digest summary
+
+Update Manifest Job:  (main push 시에만)
+  ✅ Checkout source code
+  ✅ Update image tag      (awk로 Full SHA 갱신)
+  ✅ git commit + push     (ci: update node-app image to abc1234)
 ```
 
 ```bash
@@ -565,7 +658,7 @@ Packages
   sha-abc1234567890abcdef...  ← 40자 전체 SHA
 ```
 
-✅ **확인**: `Build & Test` + `Docker Build & Push` 두 Job 모두 초록색(✅) 확인
+✅ **확인**: `Build & Test` → `Docker Build & Push` → `Update Manifest` 3개 Job 모두 초록색(✅) 확인
 
 ---
 
@@ -748,10 +841,13 @@ git push origin main
 - [ ] `Build & Test` Job 성공 확인 (단위 테스트 4개 통과)
 - [ ] `Docker Build & Push` Job 성공 확인
 - [ ] GHCR에 `latest` + SHA 태그 이미지 2개 등록 확인
+- [ ] `Update Manifest` Job 성공 확인 (main push 시에만 실행)
+- [ ] `manifests/node-app/deployment.yaml` 이미지 태그가 새 Full SHA로 자동 갱신 확인
+- [ ] 저장소에 `ci: update node-app image to <SHA>` 커밋 자동 생성 확인
 - [ ] PR 생성 시 이미지 푸시 없이 빌드/테스트만 실행 확인 (`push: false`)
 - [ ] `app/java-app/` 변경 없이 node-app 변경 시 `CI - Java App` 미트리거 확인
-- [ ] CI 실패 시 `Docker Build & Push` Job 자동 스킵 이해
-- [ ] `secrets.GITHUB_TOKEN` (자동 발급)으로 GHCR 인증됨을 이해
+- [ ] CI 실패 시 `Docker Build & Push` + `Update Manifest` Job 자동 스킵 이해
+- [ ] `secrets.GITHUB_TOKEN` (자동 발급)으로 GHCR 인증 및 매니페스트 커밋 가능함을 이해
 
 ---
 
