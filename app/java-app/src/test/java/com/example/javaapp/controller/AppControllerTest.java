@@ -18,11 +18,26 @@ class AppControllerTest {
     private MockMvc mockMvc;
 
     // ----------------------------------------------------------------
-    // GET / — 기본 정보 응답 테스트
+    // GET / — HTML 웹 페이지 테스트 (신규)
     // ----------------------------------------------------------------
     @Test
-    void getRoot_returns200WithAppInfo() throws Exception {
+    void getRoot_returns200WithHtml() throws Exception {
         mockMvc.perform(get("/")
+                .accept(MediaType.TEXT_HTML))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("java-app")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Running")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("Spring Boot 3.x")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("#FF6B35")));
+    }
+
+    // ----------------------------------------------------------------
+    // GET /api — JSON 응답 테스트 (GET / 에서 이동)
+    // ----------------------------------------------------------------
+    @Test
+    void getApi_returns200WithAppInfo() throws Exception {
+        mockMvc.perform(get("/api")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
@@ -35,7 +50,7 @@ class AppControllerTest {
     }
 
     // ----------------------------------------------------------------
-    // GET /health — 헬스체크 응답 테스트
+    // GET /health — 헬스체크 응답 테스트 (변경 없음)
     // ----------------------------------------------------------------
     @Test
     void getHealth_returns200WithStatusOk() throws Exception {
@@ -49,7 +64,7 @@ class AppControllerTest {
     }
 
     // ----------------------------------------------------------------
-    // 404 — 존재하지 않는 경로 테스트
+    // 404 — 존재하지 않는 경로 테스트 (변경 없음)
     // ----------------------------------------------------------------
     @Test
     void unknownPath_returns404WithErrorFormat() throws Exception {
@@ -63,7 +78,7 @@ class AppControllerTest {
     }
 
     // ----------------------------------------------------------------
-    // 405 — 허용되지 않는 메서드 테스트
+    // 405 — POST / → Method Not Allowed 테스트 (변경 없음)
     // ----------------------------------------------------------------
     @Test
     void postRoot_returns405WithErrorFormat() throws Exception {
