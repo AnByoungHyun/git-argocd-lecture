@@ -39,20 +39,20 @@
 
 ```mermaid
 graph LR
-    Dev["👨‍💻 개발자\n코드 수정 + git push"] --> GH["🐙 GitHub\nmain 브랜치"]
+    Dev["👨‍💻 개발자<br/>코드 수정 + git push"] --> GH["🐙 GitHub<br/>main 브랜치"]
 
-    GH -->|push 이벤트| CI["⚙️ GitHub Actions CI\n빌드 + 테스트\n이미지 빌드/푸시"]
-    CI -->|이미지 푸시| GHCR["📦 GHCR\nghcr.io/.../app:SHA"]
-    CI -->|매니페스트 태그 업데이트 커밋| Manifests["📄 manifests/\ndeployment.yaml\nimage: app:NEW-SHA"]
+    GH -->|push 이벤트| CI["⚙️ GitHub Actions<br/>빌드·테스트·이미지 푸시"]
+    CI -->|이미지 푸시| GHCR["📦 GHCR<br/>ghcr.io/.../app:SHA"]
+    CI -->|매니페스트 태그 업데이트 커밋| Manifests["📄 K8s Manifests<br/>image: app:NEW-SHA"]
 
-    Manifests -->|Git 폴링 3분 주기| ArgoCD["🔄 ArgoCD\nOutOfSync 감지\nauto-sync 실행"]
+    Manifests -->|Git 폴링 3분 주기| ArgoCD["🔄 ArgoCD<br/>OutOfSync → auto-sync"]
     GHCR -->|이미지 Pull| K8s
 
-    ArgoCD -->|kubectl apply| K8s["☸️ Kubernetes\nk3s / EKS"]
+    ArgoCD -->|kubectl apply| K8s["☸️ Kubernetes<br/>k3s / EKS"]
 
-    K8s --> Java["☕ java-app\n:8080"]
-    K8s --> Node["🟢 node-app\n:3000"]
-    K8s --> Python["🐍 python-app\n:8000"]
+    K8s --> Java["☕ java-app<br/>:8080"]
+    K8s --> Node["🟢 node-app<br/>:3000"]
+    K8s --> Python["🐍 python-app<br/>:8000"]
 ```
 
 #### 기술 스택 구성도
@@ -65,9 +65,9 @@ graph TD
     end
 
     subgraph "🐙 GitHub (소스 & CI)"
-        Repo["GitHub 저장소\n소스 코드 + 매니페스트"]
-        Actions["GitHub Actions\nCI 워크플로우 3개"]
-        GHCR["GHCR\n컨테이너 이미지 레지스트리"]
+        Repo["GitHub 저장소<br/>소스 코드 + 매니페스트"]
+        Actions["GitHub Actions<br/>CI 워크플로우 3개"]
+        GHCR["GHCR<br/>컨테이너 이미지 레지스트리"]
     end
 
     subgraph "☸️ Kubernetes 클러스터"
@@ -118,19 +118,19 @@ graph TD
 
 ```mermaid
 graph LR
-    G01["01\n사전 준비\n⏱ 30분"] --> G02["02\n샘플 앱 이해\n⏱ 40분"]
-    G02 --> G03["03\nDockerfile\n⏱ 40분"]
-    G03 --> G04["04\nGitHub Actions\n⏱ 60분"]
-    G04 --> G05["05\nK8s 매니페스트\n⏱ 50분"]
-    G05 --> G06["06\nRancher + ArgoCD\n⏱ 60분"]
-    G06 --> G07["07\nGitOps 배포\n⏱ 60분"]
+    G01["01<br/>사전 준비<br/>⏱ 30분"] --> G02["02<br/>샘플 앱 이해<br/>⏱ 40분"]
+    G02 --> G03["03<br/>Dockerfile<br/>⏱ 40분"]
+    G03 --> G04["04<br/>GitHub Actions<br/>⏱ 60분"]
+    G04 --> G05["05<br/>K8s 매니페스트<br/>⏱ 50분"]
+    G05 --> G06["06<br/>Rancher + ArgoCD<br/>⏱ 60분"]
+    G06 --> G07["07<br/>GitOps 배포<br/>⏱ 60분"]
 ```
 
 #### 심화 과정 (AWS EKS) — 약 2~3시간 추가
 
 ```mermaid
 graph LR
-    G07["07\nGitOps 배포\n완료"] --> G09["09\nAWS EKS 전환\n⏱ 2~3시간"]
+    G07["07<br/>GitOps 배포<br/>완료"] --> G09["09<br/>AWS EKS 전환<br/>⏱ 2~3시간"]
 ```
 
 #### 가이드별 상세 정보

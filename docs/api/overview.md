@@ -23,18 +23,18 @@ DB 연동이 없으며, 각 앱은 공통된 엔드포인트 구조를 따른다
 ```mermaid
 graph TD
     subgraph Apps["샘플 앱"]
-        JA["java-app\n:8080"]
-        NA["node-app\n:3000"]
-        PA["python-app\n:8000"]
+        JA["java-app<br/>:8080"]
+        NA["node-app<br/>:3000"]
+        PA["python-app<br/>:8000"]
     end
     subgraph EP["공통 엔드포인트"]
         E1["GET /"]
         E2["GET /health"]
     end
     subgraph Resp["응답"]
-        R1["200 OK\n앱 정보 JSON"]
-        R2["200 OK\nstatus: ok"]
-        R3["500 Error\nstatus: error"]
+        R1["200 OK<br/>앱 정보 JSON"]
+        R2["200 OK<br/>status: ok"]
+        R3["500 Error<br/>status: error"]
     end
     JA --> E1
     NA --> E1
@@ -239,10 +239,10 @@ readinessProbe:
 
 ```mermaid
 graph LR
-    CL["외부 클라이언트"] --> ING["Ingress\napps.local"]
-    ING --> |"/java"| SVC1["java-app-svc\n:8080"]
-    ING --> |"/node"| SVC2["node-app-svc\n:3000"]
-    ING --> |"/python"| SVC3["python-app-svc\n:8000"]
+    CL["외부 클라이언트"] --> ING["Ingress<br/>apps.local"]
+    ING --> |"/java"| SVC1["java-app-svc<br/>:8080"]
+    ING --> |"/node"| SVC2["node-app-svc<br/>:3000"]
+    ING --> |"/python"| SVC3["python-app-svc<br/>:8000"]
     SVC1 --> POD1["java Pod"]
     SVC2 --> POD2["node Pod"]
     SVC3 --> POD3["python Pod"]
