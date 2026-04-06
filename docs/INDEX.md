@@ -61,7 +61,7 @@
 
 | 문서 | 설명 | 상태 |
 |------|------|------|
-| [API 공통 명세](api/overview.md) | 3개 앱 공통 엔드포인트, 포트, Ingress 라우팅, 에러 형식 | ✅ 완료 (v1.1.0 Mermaid 추가) |
+| [API 공통 명세](api/overview.md) | 3개 앱 공통 엔드포인트 (/, /api, /health), Ingress, HTML 페이지 명세 | ✅ 완료 (v1.2.0) |
 
 ---
 

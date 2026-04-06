@@ -361,8 +361,11 @@ ArgoCD Application Controller (주기적 상태 비교)
 kubectl get deployment node-app -n apps \
   -o jsonpath='{.spec.template.spec.containers[0].image}' && echo ""
 
-# 현재 API 응답 확인 (version 필드 기록)
-curl -s http://apps.local/node | python3 -m json.tool
+# 브라우저로 HTML 페이지 확인 (초록 배경, 버전 번호 기록)
+open http://apps.local/node
+
+# 현재 JSON API 응답 확인 (version 필드 기록)
+curl -s http://apps.local/node/api | python3 -m json.tool
 
 # ArgoCD 앱 상태 확인
 kubectl get applications -n argocd
@@ -374,7 +377,7 @@ ghcr.io/anbyounghyun/node-app:latest   ← 현재 이미지
 
 {
     "app": "node-app",
-    "version": "1.0.0",              ← 이 값을 기억
+    "version": "1.0.0",              ← 이 값을 기억 (HTML 페이지에서도 동일)
     "language": "Node.js",
     ...
 }
@@ -383,27 +386,30 @@ NAME       SYNC STATUS   HEALTH STATUS
 node-app   Synced        Healthy
 ```
 
-✅ **확인**: 현재 버전 기록, ArgoCD `Synced + Healthy` 상태
+> 💡 **HTML 페이지(GET /)**: 브라우저에서 초록(#68A063) 배경 페이지가 보이면 정상입니다.  
+> 배포 버전 변경 후에는 **HTML의 Version 값**과 `/api`의 `version` 필드로 새 버전을 확인합니다.
+
+✅ **확인**: 현재 버전 기록, ArgoCD `Synced + Healthy` 상태, 브라우저 초록 배경 HTML 확인
 
 ---
 
 ### Step 2: 코드 변경 — node-app 응답 수정
 
-API 응답에 새 필드를 추가해 배포 변경을 시뮬레이션합니다.
+JSON API(`GET /api`) 응답에 새 필드를 추가해 배포 변경을 시뮬레이션합니다.
 
 ```bash
 cd ~/workspace/git-argocd-lecture/app/node-app
 ```
 
-**app.js의 `GET /` 응답에 `description` 필드 추가**
+**app.js의 `GET /api` 응답에 `description` 필드 추가**
 
 ```bash
-# 변경 전 현재 GET / 응답 확인
+# 변경 전 현재 GET /api 응답 확인
 grep -A 10 "app.get\('/'," src/app.js
 ```
 
 ```bash
-# src/app.js 수정 — GET / 응답에 description 필드 추가
+# src/app.js 수정 — GET /api 응답에 description 필드 추가
 # 아래 내용을 직접 편집기로 수정하거나 sed 사용
 
 # 변경 방법 (편집기 사용 권장):
@@ -645,16 +651,19 @@ node-app-abc-xxx           0/1     Terminating 0
 kubectl get deployment node-app -n apps \
   -o jsonpath='{.spec.template.spec.containers[0].image}' && echo ""
 
-# 새 버전 API 응답 확인
-curl -s http://apps.local/node | python3 -m json.tool
+# 브라우저로 HTML 페이지 확인 (배경색 동일 초록, Version 값이 변경됨)
+open http://apps.local/node
+
+# 새 버전 JSON API 응답 확인
+curl -s http://apps.local/node/api | python3 -m json.tool
 curl -s http://apps.local/node/health | python3 -m json.tool
 ```
 
 ```
-예상 출력 (GET /):
+예상 출력 (GET /api):
 {
     "app": "node-app",
-    "version": "abc1234",           ← 새 SHA 버전
+    "version": "abc1234",           ← 새 SHA 버전 (HTML 페이지도 동일)
     "language": "Node.js",
     "framework": "Express",
     "port": 3000,
@@ -668,9 +677,15 @@ curl -s http://apps.local/node/health | python3 -m json.tool
     "app": "node-app",
     "version": "abc1234"
 }
+
+브라우저 (GET /):
+  배경색: 초록 #68A063 (변경 없음)
+  🟢 node-app, Version: abc1234  ← 새 SHA로 변경됨 ✅
 ```
 
-✅ **확인**: `description` 필드가 응답에 포함, version에 새 SHA 반영
+> 💡 **배경색은 항상 고정**입니다. 배포 버전 변경은 HTML의 `Version` 값과 `/api`의 `version` 필드로 확인합니다.
+
+✅ **확인**: `description` 필드가 /api 응답에 포함, HTML 페이지 Version 갱신, /health 정상
 
 ---
 

@@ -12,8 +12,8 @@
 이 가이드를 완료하면 다음을 할 수 있습니다:
 
 - [ ] 3개 샘플 앱(Java/Node.js/Python)의 디렉토리 구조와 핵심 코드를 설명할 수 있다
-- [ ] 각 앱의 `GET /`와 `GET /health` 엔드포인트 응답 형식을 이해한다
-- [ ] 각 앱을 로컬에서 직접 실행하고 API 응답을 확인할 수 있다
+- [ ] 각 앱의 `GET /`(HTML), `GET /api`(JSON), `GET /health`(JSON) 엔드포인트를 이해한다
+- [ ] 각 앱을 로컬에서 직접 실행하고 HTML 페이지와 API 응답을 확인할 수 있다
 - [ ] 단위 테스트를 실행하고 전체 통과를 확인할 수 있다
 
 ---
@@ -71,7 +71,7 @@ GET  http://localhost:8080/nopath  ← 404 (존재하지 않는 경로)
 모든 응답은 `Content-Type: application/json`으로 반환됩니다.
 
 ```json
-// 정상 응답 (GET /)
+// 정상 응답 (GET /api)
 {
   "app": "java-app",
   "version": "1.0.0",
@@ -284,12 +284,16 @@ git-argocd-lecture/
 
 모든 앱은 동일한 엔드포인트 구조를 따릅니다:
 
-| 엔드포인트 | 메서드 | 상태코드 | 응답 필드 |
-|----------|--------|---------|---------|
-| `GET /` | GET | 200 | `app`, `version`, `language`, `framework`, `port`, `environment` |
-| `GET /health` | GET | 200 | `status`, `app`, `version` |
-| 잘못된 경로 | GET | 404 | `status`, `code`, `message`, `path` |
-| 잘못된 메서드 | POST 등 | 405 | `status`, `code`, `message`, `path` |
+| 엔드포인트 | 응답 형식 | 상태코드 | 내용 |
+|----------|---------|---------|------|
+| `GET /` | `text/html` | 200 | 배경색 HTML 페이지 (앱명·버전·상태 시각화) |
+| `GET /api` | `application/json` | 200 | `app`, `version`, `language`, `framework`, `port`, `environment` |
+| `GET /health` | `application/json` | 200 | `status`, `app`, `version` |
+| 잘못된 경로 | `application/json` | 404 | `status`, `code`, `message`, `path` |
+| 잘못된 메서드 | `application/json` | 405 | `status`, `code`, `message`, `path` |
+
+> 💡 **GET / vs GET /api**: 브라우저에서는 `GET /`(HTML 페이지)로, 자동화·테스트에서는 `GET /api`(JSON)로 접근합니다.
+> 앱별 배경색: ☕ java-app `#FF6B35` (주황) | 🟢 node-app `#68A063` (초록) | 🐍 python-app `#306998` (파랑)
 
 ### java-app 핵심 코드 포인트
 
@@ -303,7 +307,10 @@ public class AppController {
     private String appVersion;
 
     @GetMapping("/")
-    public ResponseEntity<Map<String, Object>> index() { ... }
+    public ResponseEntity<String> index() { ... }  // HTML 반환
+
+    @GetMapping("/api")
+    public ResponseEntity<Map<String, Object>> api() { ... }  // JSON 반환
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() { ... }
@@ -449,18 +456,21 @@ Started JavaAppApplication in 2.xxx seconds
 Tomcat started on port 8080 (http)
 ```
 
-**2-2. API 응답 확인** (새 터미널에서 실행)
+**2-2. 브라우저 + API 응답 확인** (새 터미널에서 실행)
 
 ```bash
-# GET / — 앱 기본 정보
-curl -s http://localhost:8080/ | python3 -m json.tool
+# GET / — 브라우저로 HTML 페이지 확인 (주황 배경색 #FF6B35)
+open http://localhost:8080/
+
+# GET /api — JSON 앱 정보 확인
+curl -s http://localhost:8080/api | python3 -m json.tool
 
 # GET /health — 헬스체크
 curl -s http://localhost:8080/health | python3 -m json.tool
 ```
 
 ```
-예상 출력 (GET /):
+예상 출력 (GET /api):
 {
     "app": "java-app",
     "version": "1.0.0",
@@ -476,6 +486,10 @@ curl -s http://localhost:8080/health | python3 -m json.tool
     "app": "java-app",
     "version": "1.0.0"
 }
+
+브라우저 (GET /):
+  - 배경색: 주황 (#FF6B35)
+  - ☕ java-app, Version: 1.0.0, ● Running
 ```
 
 **2-3. 에러 핸들링 확인**
@@ -504,7 +518,7 @@ curl -s -X POST http://localhost:8080/ | python3 -m json.tool
 # 실행 중인 터미널에서 Ctrl+C
 ```
 
-✅ **확인**: `GET /health` 응답에 `"status": "ok"` 포함, 404/405 에러 응답 형식 확인
+✅ **확인**: 브라우저 주황 배경 HTML 페이지, `GET /api` JSON 응답, `GET /health` `"status": "ok"` 확인
 
 ---
 
@@ -534,11 +548,14 @@ npm start
 [node-app] environment: production
 ```
 
-**3-2. API 응답 확인** (새 터미널에서 실행)
+**3-2. 브라우저 + API 응답 확인** (새 터미널에서 실행)
 
 ```bash
-# GET / — 앱 기본 정보
-curl -s http://localhost:3000/ | python3 -m json.tool
+# GET / — 브라우저로 HTML 페이지 확인 (초록 배경색 #68A063)
+open http://localhost:3000/
+
+# GET /api — JSON 앱 정보 확인
+curl -s http://localhost:3000/api | python3 -m json.tool
 
 # GET /health — 헬스체크
 curl -s http://localhost:3000/health | python3 -m json.tool
@@ -548,7 +565,7 @@ curl -s http://localhost:3000/no-such-path | python3 -m json.tool
 ```
 
 ```
-예상 출력 (GET /):
+예상 출력 (GET /api):
 {
     "app": "node-app",
     "version": "1.0.0",
@@ -564,6 +581,10 @@ curl -s http://localhost:3000/no-such-path | python3 -m json.tool
     "app": "node-app",
     "version": "1.0.0"
 }
+
+브라우저 (GET /):
+  - 배경색: 초록 (#68A063)
+  - 🟢 node-app, Version: 1.0.0, ● Running
 ```
 
 **3-3. 앱 종료**
@@ -578,7 +599,7 @@ curl -s http://localhost:3000/no-such-path | python3 -m json.tool
 [node-app] server closed
 ```
 
-✅ **확인**: `GET /`, `GET /health` 모두 JSON 응답, 앱명이 `"node-app"` 확인
+✅ **확인**: 브라우저 초록 배경 HTML 페이지, `GET /api` JSON 응답 (`"app": "node-app"`), `GET /health` 확인
 
 ---
 
@@ -614,15 +635,18 @@ INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 ```
 
-**4-2. API 응답 확인** (새 터미널에서 실행)
+**4-2. 브라우저 + API 응답 확인** (새 터미널에서 실행)
 
 ```bash
 # 가상환경 재활성화 (새 터미널)
 cd ~/workspace/git-argocd-lecture/app/python-app
 source .venv/bin/activate
 
-# GET / — 앱 기본 정보
-curl -s http://localhost:8000/ | python3 -m json.tool
+# GET / — 브라우저로 HTML 페이지 확인 (파랑 배경색 #306998)
+open http://localhost:8000/
+
+# GET /api — JSON 앱 정보 확인
+curl -s http://localhost:8000/api | python3 -m json.tool
 
 # GET /health — 헬스체크
 curl -s http://localhost:8000/health | python3 -m json.tool
@@ -632,7 +656,7 @@ curl -s http://localhost:8000/no-such-path | python3 -m json.tool
 ```
 
 ```
-예상 출력 (GET /):
+예상 출력 (GET /api):
 {
     "app": "python-app",
     "version": "1.0.0",
@@ -648,6 +672,10 @@ curl -s http://localhost:8000/no-such-path | python3 -m json.tool
     "app": "python-app",
     "version": "1.0.0"
 }
+
+브라우저 (GET /):
+  - 배경색: 파랑 (#306998)
+  - 🐍 python-app, Version: 1.0.0, ● Running
 ```
 
 **4-3. 앱 종료 및 가상환경 비활성화**
@@ -657,7 +685,7 @@ curl -s http://localhost:8000/no-such-path | python3 -m json.tool
 deactivate
 ```
 
-✅ **확인**: `GET /health` 응답에 `"status": "ok"`, 앱명 `"python-app"` 확인
+✅ **확인**: 브라우저 파랑 배경 HTML 페이지, `GET /api` JSON 응답 (`"app": "python-app"`), `GET /health` 확인
 
 ---
 
