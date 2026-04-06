@@ -1,6 +1,6 @@
 # ============================================================
 # CI 워크플로우: Python (FastAPI) — app/python-app/
-# 관련 유즈케이스: UC-CI-001, UC-CI-002, UC-CI-003
+# 관련 유즈케이스: UC-CI-001, UC-CI-002, UC-CI-003, UC-CD-001
 # ============================================================
 name: CI - Python App
 
@@ -16,9 +16,10 @@ on:
     paths:
       - 'app/python-app/**'
 
-# NFR-SEC-001: 시크릿은 GitHub Actions Secret으로 관리
+# contents: write — update-manifest Job의 커밋/푸시에 필요
+# packages: write — GHCR 이미지 푸시에 필요
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 env:
@@ -34,11 +35,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: 코드 체크아웃
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Step 2: Python 3.11 환경 설정 (제약조건 §1, FR-PY-003)
+      # Python 3.11 환경 설정 (제약조건 §1)
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -46,12 +46,12 @@ jobs:
           cache: 'pip'
           cache-dependency-path: app/python-app/requirements.txt
 
-      # Step 3: 의존성 설치
+      # 의존성 설치
       - name: Install dependencies
         working-directory: app/python-app
         run: pip install -r requirements.txt
 
-      # Step 4: 단위 테스트 실행 (pytest)
+      # 단위 테스트 실행 (pytest)
       # NFR-CI-005: 테스트 실패 시 즉시 파이프라인 종료 (fail-fast)
       - name: Run tests with pytest
         working-directory: app/python-app
@@ -59,27 +59,20 @@ jobs:
 
   # ──────────────────────────────────────────
   # Job 2: Docker 이미지 빌드 & 푸시 (FR-CI-003, FR-CI-004)
-  # UC-CI-001: main push → 이미지 푸시
-  # UC-CI-002: PR → 빌드만 (push: false)
-  # UC-CI-003: 테스트 실패 시 이 Job 실행 안 됨
   # ──────────────────────────────────────────
   docker-build-push:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: build-and-test
-    # UC-CI-003: 테스트 성공 시에만 실행 (fail-fast 보장)
     if: success()
 
     steps:
-      # Step 1: 코드 체크아웃
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Step 2: Docker Buildx 설정 (레이어 캐시 활용 — NFR-CI-004)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Step 3: GHCR 로그인 (push 이벤트 시에만)
       - name: Log in to GitHub Container Registry
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
@@ -88,9 +81,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 4: 이미지 메타데이터 생성
-      # NFR-TAG-001: git SHA 태그
-      # NFR-TAG-002: main push 시 latest 태그 추가
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -100,9 +90,6 @@ jobs:
             type=sha,format=long,prefix=
             type=raw,value=latest,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
-      # Step 5: Docker 이미지 빌드 & 푸시
-      # NFR-CI-004: cache-from/cache-to로 레이어 캐시 활용
-      # UC-CI-002: PR 시 push=false (빌드만), main push 시 push=true
       - name: Build and push Docker image
         id: docker_build
         uses: docker/build-push-action@v5
@@ -112,16 +99,71 @@ jobs:
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # NFR-CI-004: GitHub Actions 캐시 레이어 활용
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 6: 이미지 digest 요약 출력
       - name: Image digest summary
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           echo "### ✅ Python App Docker Image Pushed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registry**: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **SHA Tag**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Digest**: ${{ steps.docker_build.outputs.digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  # ──────────────────────────────────────────
+  # Job 3: GitOps — 매니페스트 이미지 태그 업데이트 (UC-CD-001)
+  # main push 시에만 실행 (PR 제외)
+  # manifests/ 변경은 app/python-app/** path 필터에 해당 없음
+  # → CI 재트리거 없음 (안전)
+  # ──────────────────────────────────────────
+  update-manifest:
+    name: Update Manifest (GitOps)
+    runs-on: ubuntu-latest
+    needs: docker-build-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image tag and APP_VERSION in manifest
+        id: update
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+          MANIFEST="manifests/python-app/deployment.yaml"
+
+          # ① 이미지 태그 업데이트 (어떤 태그든 → full SHA로 교체)
+          sed -i "s|image: ghcr.io/anbyounghyun/python-app:.*|image: ghcr.io/anbyounghyun/python-app:${GITHUB_SHA}|" "$MANIFEST"
+
+          # ② APP_VERSION 업데이트 (APP_VERSION 바로 다음 줄의 value 교체)
+          sed -i "/APP_VERSION/{n;s|value: \".*\"|value: \"${SHORT_SHA}\";};" "$MANIFEST"
+
+          echo "✅ Manifest updated:"
+          grep -E "image:|APP_VERSION" "$MANIFEST"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push manifest update
+        env:
+          SHORT_SHA: ${{ steps.update.outputs.SHORT_SHA }}
+        run: |
+          git add manifests/python-app/deployment.yaml
+          git diff --cached --quiet && echo "No changes to commit, skipping." && exit 0
+          git commit -m "ci: update python-app image to ${SHORT_SHA}"
+          git pull --rebase origin main
+          git push
+
+      - name: Manifest update summary
+        env:
+          SHORT_SHA: ${{ steps.update.outputs.SHORT_SHA }}
+        run: |
+          echo "### 🚀 GitOps Manifest Updated" >> $GITHUB_STEP_SUMMARY
+          echo "- **App**: python-app" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ghcr.io/anbyounghyun/python-app:${GITHUB_SHA}" >> $GITHUB_STEP_SUMMARY
+          echo "- **APP_VERSION**: ${SHORT_SHA}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File**: manifests/python-app/deployment.yaml" >> $GITHUB_STEP_SUMMARY
