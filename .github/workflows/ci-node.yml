@@ -138,7 +138,9 @@ jobs:
           sed -i "s|image: ghcr.io/anbyounghyun/node-app:.*|image: ghcr.io/anbyounghyun/node-app:${GITHUB_SHA}|" "$MANIFEST"
 
           # ② APP_VERSION 업데이트 (APP_VERSION 바로 다음 줄의 value 교체)
-          sed -i "/APP_VERSION/{n;s|value: \".*\"|value: \"${SHORT_SHA}\";};" "$MANIFEST"
+          awk -v sha="${SHORT_SHA}" \
+          '/APP_VERSION/{found=1} found && /value:/{sub(/"[^"]*"/, "\"" sha "\""); found=0} {print}' \
+          "$MANIFEST" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "$MANIFEST"
 
           echo "✅ Manifest updated:"
           grep -E "image:|APP_VERSION" "$MANIFEST"
