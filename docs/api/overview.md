@@ -20,31 +20,22 @@ DB 연동이 없으며, 각 앱은 공통된 엔드포인트 구조를 따른다
 
 ### 전체 API 구조
 
-```mermaid
-graph TD
-    subgraph Apps["샘플 앱"]
-        JA["java-app<br/>:8080"]
-        NA["node-app<br/>:3000"]
-        PA["python-app<br/>:8000"]
-    end
-    subgraph EP["공통 엔드포인트"]
-        E1["GET /"]
-        E2["GET /health"]
-    end
-    subgraph Resp["응답"]
-        R1["200 OK<br/>앱 정보 JSON"]
-        R2["200 OK<br/>status: ok"]
-        R3["500 Error<br/>status: error"]
-    end
-    JA --> E1
-    NA --> E1
-    PA --> E1
-    JA --> E2
-    NA --> E2
-    PA --> E2
-    E1 --> R1
-    E2 --> R2
-    E2 --> R3
+```
+  ┌──────────────────────────────────────────────────────┐
+  │               샘플 애플리케이션 (3개)                 │
+  │  java-app:8080  │  node-app:3000  │  python-app:8000  │
+  └──────────────────────────────────────────────────────┘
+             │                               │
+           GET /                       GET /health
+             │                               │
+             ▼                               ▼
+  ┌──────────────────────┐       ┌───────────────────────┐
+  │       200 OK         │       │  200 OK               │
+  │  app, version        │       │  status: ok           │
+  │  language, port ...  │       ├───────────────────────┤
+  └──────────────────────┘       │  500 Error            │
+                                 │  status: error        │
+                                 └───────────────────────┘
 ```
 
 ---
@@ -183,21 +174,22 @@ Host: <app-host>
 
 #### Probe 연동 흐름
 
-```mermaid
-sequenceDiagram
-    participant K as K8s kubelet
-    participant C as Container
-
-    loop periodSeconds마다
-        K->>C: HTTP GET /health
-        alt 200 OK
-            C-->>K: {"status": "ok"}
-            Note over K: liveness 유지<br/>readiness 트래픽 수신
-        else 500 Error
-            C-->>K: {"status": "error"}
-            Note over K: liveness → Pod 재시작<br/>readiness → 트래픽 차단
-        end
-    end
+```
+  K8s kubelet                        Container
+       │                                  │
+       │           (periodSeconds마다)     │
+       │                                  │
+       │──── HTTP GET /health ───────────>│
+       │                                  │
+       │◀─── 정상: 200 OK ────────────────│
+       │     {"status": "ok"}             │
+       │     → liveness 유지              │
+       │     → readiness 트래픽 수신      │
+       │                                  │
+       │◀─── 비정상: 500 Error ───────────│
+       │     {"status": "error"}          │
+       │     → liveness: Pod 재시작       │
+       │     → readiness: 트래픽 차단     │
 ```
 
 #### K8s Probe 설정 예시
@@ -237,15 +229,22 @@ readinessProbe:
 
 #### Ingress 라우팅 흐름
 
-```mermaid
-graph LR
-    CL["외부 클라이언트"] --> ING["Ingress<br/>apps.local"]
-    ING --> |"/java"| SVC1["java-app-svc<br/>:8080"]
-    ING --> |"/node"| SVC2["node-app-svc<br/>:3000"]
-    ING --> |"/python"| SVC3["python-app-svc<br/>:8000"]
-    SVC1 --> POD1["java Pod"]
-    SVC2 --> POD2["node Pod"]
-    SVC3 --> POD3["python Pod"]
+```
+                       ┌──────────────────┐
+  외부 클라이언트 ─────>│     Ingress       │
+                       │   apps.local      │
+                       └──────────────────┘
+                         │       │       │
+                      /java   /node  /python
+                         │       │       │
+                         ▼       ▼       ▼
+                 ┌──────────┐ ┌─────────┐ ┌──────────┐
+                 │ java-app │ │node-app │ │python-app│
+                 │ svc:8080 │ │svc:3000 │ │ svc:8000 │
+                 └──────────┘ └─────────┘ └──────────┘
+                      │           │           │
+                      ▼           ▼           ▼
+                  java Pod    node Pod    python Pod
 ```
 
 ### 4.2 Ingress 매니페스트 예시

@@ -137,28 +137,18 @@ on:
       - 'app/node-app/**'
 ```
 
-```mermaid
-graph LR
-    Push["git push
-app/node-app/index.js 수정"]
-
-    Java["ci-java.yml
-❌ 트리거 안 됨
-java-app 변경 없음"]
-    Node["ci-node.yml
-✅ 트리거됨
-node-app 변경 감지"]
-    Python["ci-python.yml
-❌ 트리거 안 됨
-python-app 변경 없음"]
-
-    Push --> Java
-    Push --> Node
-    Push --> Python
-
-    style Node fill:#d4edda,stroke:#28a745
-    style Java fill:#e2e3e5,stroke:#6c757d
-    style Python fill:#e2e3e5,stroke:#6c757d
+```
+  ┌──────────────────────────────────┐
+  │            git push              │
+  │  app/node-app/index.js 수정      │
+  └──────────────────────────────────┘
+         │             │            │
+         ▼             ▼            ▼
+  ┌────────────┐ ┌────────────┐ ┌────────────┐
+  │ci-java.yml │ │ci-node.yml │ │ci-python   │
+  │❌ 미트리거 │ │✅ 트리거됨 │ │   .yml     │
+  │java 변경X  │ │node 변경   │ │❌ 미트리거 │
+  └────────────┘ └────────────┘ └────────────┘
 ```
 
 #### 2-2. 모노레포에서 앱별 독립 파이프라인의 장점
@@ -353,27 +343,21 @@ jobs:
 > 지정하지 않으면 `./mvnw: No such file or directory` 오류가 발생합니다.  
 > Node.js의 `setup-node` cache-dependency-path도 마찬가지로 `app/node-app/package-lock.json`으로 명시합니다.
 
-```mermaid
-graph TD
-    subgraph "정상 흐름"
-        J1A["Job 1: Build & Test ✅ 성공"]
-        J2A["Job 2: Docker Push ✅ 실행
-ghcr.io/.../app:SHA 등록"]
-        J1A -->|"needs 충족 + if: success() 통과"| J2A
-    end
-
-    subgraph "실패 흐름"
-        J1B["Job 1: Build & Test ❌ 실패
-테스트 오류"]
-        J2B["Job 2: Docker Push ⊘ 스킵
-GHCR 변경 없음"]
-        J1B -->|"needs 미충족 → 자동 스킵"| J2B
-    end
-
-    style J1A fill:#d4edda,stroke:#28a745
-    style J2A fill:#d4edda,stroke:#28a745
-    style J1B fill:#f8d7da,stroke:#dc3545
-    style J2B fill:#e2e3e5,stroke:#6c757d
+```
+  [정상 흐름]                         [실패 흐름]
+  ┌──────────────────────┐           ┌──────────────────────┐
+  │ Job1: Build & Test   │           │ Job1: Build & Test   │
+  │       ✅ 성공        │           │       ❌ 실패        │
+  └──────────────────────┘           └──────────────────────┘
+               │                                  │
+    needs 충족 + success()             needs 미충족 → 자동 스킵
+               │                                  │
+               ▼                                  ▼
+  ┌──────────────────────┐           ┌──────────────────────┐
+  │ Job2: Docker Push    │           │ Job2: Docker Push    │
+  │       ✅ 실행        │           │       ⊘ 스킵         │
+  │  app:SHA GHCR 등록   │           │   GHCR 변경 없음     │
+  └──────────────────────┘           └──────────────────────┘
 ```
 
 > 💡 `needs`만 있어도 동작하지만 `if: success()`를 함께 명시하면  
@@ -541,17 +525,11 @@ CI - Python App  ← 미트리거
 
 Actions 탭 → `CI - Node.js App` 클릭 → 가장 최근 실행 클릭
 
-```mermaid
-graph LR
-    J1["Build & Test
-✅ 완료 약 1분"]
-    J2["Docker Build & Push
-✅ 완료 약 2~3분"]
-    J1 -->|"needs: build-and-test
-테스트 성공 후 실행"| J2
-
-    style J1 fill:#d4edda,stroke:#28a745
-    style J2 fill:#d4edda,stroke:#28a745
+```
+  ┌──────────────────┐   needs: build-and-test   ┌──────────────────────┐
+  │  Build & Test    │ ────────────────────────> │  Docker Build & Push │
+  │  ✅ 완료 ~1분    │   테스트 성공 후 실행      │  ✅ 완료 ~2~3분      │
+  └──────────────────┘                           └──────────────────────┘
 ```
 
 **각 Job의 Step 상세 확인**

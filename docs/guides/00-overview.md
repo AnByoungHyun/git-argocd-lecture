@@ -37,59 +37,54 @@
 
 #### CI/CD 전체 흐름
 
-```mermaid
-graph LR
-    Dev["👨‍💻 개발자<br/>코드 수정 + git push"] --> GH["🐙 GitHub<br/>main 브랜치"]
-
-    GH -->|push 이벤트| CI["⚙️ GitHub Actions<br/>빌드·테스트·이미지 푸시"]
-    CI -->|이미지 푸시| GHCR["📦 GHCR<br/>ghcr.io/.../app:SHA"]
-    CI -->|매니페스트 태그 업데이트 커밋| Manifests["📄 K8s Manifests<br/>image: app:NEW-SHA"]
-
-    Manifests -->|Git 폴링 3분 주기| ArgoCD["🔄 ArgoCD<br/>OutOfSync → auto-sync"]
-    GHCR -->|이미지 Pull| K8s
-
-    ArgoCD -->|kubectl apply| K8s["☸️ Kubernetes<br/>k3s / EKS"]
-
-    K8s --> Java["☕ java-app<br/>:8080"]
-    K8s --> Node["🟢 node-app<br/>:3000"]
-    K8s --> Python["🐍 python-app<br/>:8000"]
+```
+  ┌──────────┐  push   ┌──────────────────┐  이미지  ┌───────────┐
+  │  개발자   │ ──────> │ GitHub Actions CI │ ──────> │   GHCR    │
+  └──────────┘         │  빌드·테스트·푸시  │         │  app:SHA  │
+                       └──────────────────┘         └───────────┘
+                                 │                        │
+                       manifest 커밋 (자동)           이미지 Pull
+                                 │                        │
+                                 ▼                        ▼
+                       ┌────────────────┐     ┌───────────────────┐
+                       │ K8s Manifests  │     │    Kubernetes      │
+                       │ image:NEW-SHA  │     │    k3s / EKS       │
+                       └────────────────┘     │                    │
+                                 │            │ java-app   :8080   │
+                          3분 폴링│            │ node-app   :3000   │
+                                 ▼            │ python-app :8000   │
+                       ┌────────────────┐     └───────────────────┘
+                       │    ArgoCD      │ apply         ▲
+                       │ OutOfSync→sync │ ─────────────┘
+                       └────────────────┘
 ```
 
 #### 기술 스택 구성도
 
-```mermaid
-graph TD
-    subgraph "💻 로컬 개발 환경"
-        IDE["IDE / 텍스트 에디터"]
-        Git["Git CLI"]
-    end
-
-    subgraph "🐙 GitHub (소스 & CI)"
-        Repo["GitHub 저장소<br/>소스 코드 + 매니페스트"]
-        Actions["GitHub Actions<br/>CI 워크플로우 3개"]
-        GHCR["GHCR<br/>컨테이너 이미지 레지스트리"]
-    end
-
-    subgraph "☸️ Kubernetes 클러스터"
-        subgraph "로컬: Rancher Desktop k3s"
-            ArgoCD_local["ArgoCD"]
-            Nginx_local["Nginx Ingress"]
-            Apps_local["java / node / python Pod"]
-        end
-        subgraph "심화: AWS EKS"
-            ArgoCD_eks["ArgoCD"]
-            Nginx_eks["Nginx / ALB Ingress"]
-            Apps_eks["java / node / python Pod"]
-        end
-    end
-
-    IDE --> Git --> Repo
-    Repo --> Actions --> GHCR
-    Actions --> Repo
-    Repo -->|GitOps 폴링| ArgoCD_local
-    Repo -->|GitOps 폴링| ArgoCD_eks
-    GHCR --> Apps_local
-    GHCR --> Apps_eks
+```
+  ┌─────────────────────────────────────────┐
+  │              로컬 개발 환경               │
+  │    IDE / 텍스트 에디터  │   Git CLI      │
+  └─────────────────────────────────────────┘
+                     │ git push
+                     ▼
+  ┌─────────────────────────────────────────┐
+  │           GitHub (소스 & CI)            │
+  │  저장소: 소스 코드 + 매니페스트          │
+  │  GitHub Actions: CI 워크플로우 3개      │
+  │  GHCR: 컨테이너 이미지 레지스트리       │
+  └─────────────────────────────────────────┘
+        │ GitOps 폴링           │ 이미지 Pull
+        ▼                       ▼
+  ┌──────────────────────────────────────────────┐
+  │              Kubernetes 클러스터              │
+  │  ┌───────────────────────┐  ┌─────────────┐  │
+  │  │  로컬: Rancher Desktop │  │  AWS EKS   │  │
+  │  │  - ArgoCD             │  │  - ArgoCD  │  │
+  │  │  - Nginx Ingress      │  │  - ALB     │  │
+  │  │  - java/node/python   │  │  - 3개 앱  │  │
+  │  └───────────────────────┘  └─────────────┘  │
+  └──────────────────────────────────────────────┘
 ```
 
 ---
@@ -116,21 +111,28 @@ graph TD
 
 #### 기본 과정 (로컬 k3s) — 약 4~6시간
 
-```mermaid
-graph LR
-    G01["01<br/>사전 준비<br/>⏱ 30분"] --> G02["02<br/>샘플 앱 이해<br/>⏱ 40분"]
-    G02 --> G03["03<br/>Dockerfile<br/>⏱ 40분"]
-    G03 --> G04["04<br/>GitHub Actions<br/>⏱ 60분"]
-    G04 --> G05["05<br/>K8s 매니페스트<br/>⏱ 50분"]
-    G05 --> G06["06<br/>Rancher + ArgoCD<br/>⏱ 60분"]
-    G06 --> G07["07<br/>GitOps 배포<br/>⏱ 60분"]
+```
+  ┌────────┐   ┌────────┐   ┌────────┐   ┌──────────┐
+  │01 사전 │──>│02 샘플 │──>│03 도커 │──>│04 GitHub │
+  │  준비  │   │앱 이해 │   │  file  │   │ Actions  │
+  │⏱ 30분 │   │⏱ 40분 │   │⏱ 40분 │   │⏱ 60분   │
+  └────────┘   └────────┘   └────────┘   └──────────┘
+                                               │
+                                               ▼
+  ┌────────┐   ┌──────────┐   ┌──────────────────────┐
+  │07 배포 │<──│06 Rancher│<──│  05 K8s 매니페스트   │
+  │  실습  │   │+ ArgoCD  │   │      ⏱ 50분          │
+  │⏱ 60분 │   │⏱ 60분   │   └──────────────────────┘
+  └────────┘   └──────────┘
 ```
 
 #### 심화 과정 (AWS EKS) — 약 2~3시간 추가
 
-```mermaid
-graph LR
-    G07["07<br/>GitOps 배포<br/>완료"] --> G09["09<br/>AWS EKS 전환<br/>⏱ 2~3시간"]
+```
+  ┌──────────────────────────┐        ┌──────────────────────┐
+  │  07 GitOps 배포 완료     │ ─────> │  09 AWS EKS 전환     │
+  └──────────────────────────┘        │      ⏱ 2~3시간       │
+                                      └──────────────────────┘
 ```
 
 #### 가이드별 상세 정보

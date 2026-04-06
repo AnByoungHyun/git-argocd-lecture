@@ -25,41 +25,36 @@
 Kubernetes는 애플리케이션을 실행하고 외부에 노출하는 과정을 여러 오브젝트로 **분리**합니다.  
 각각이 독립적인 역할을 가지기 때문에, 하나를 변경해도 다른 것에 영향이 없습니다.
 
-```mermaid
-graph TD
-    User["👤 외부 사용자
-HTTP 요청
-apps.local/java"]
-
-    Ingress["🔀 Ingress
-nginx Ingress Controller
-'어디로 보낼까?' — L7 라우팅
-apps.local/java → java-app-svc"]
-
-    Service["⚖️ Service ClusterIP
-java-app-svc:8080
-'어떤 Pod에 보낼까?' — 로드밸런싱
-레이블 app=java-app 으로 Pod 선택"]
-
-    Deployment["📋 Deployment
-replicas: 1
-'Pod를 몇 개, 어떻게 실행할까?'
-Pod 수·이미지·자원 제한 관리"]
-
-    Pod["🟦 Pod
-container: java-app:SHA
-port: 8080
-실제 애플리케이션 프로세스"]
-
-    User -->|"HTTP apps.local/java"| Ingress
-    Ingress -->|"java-app-svc:8080"| Service
-    Service -->|"app=java-app 레이블 매칭"| Deployment
-    Deployment -->|"관리"| Pod
-
-    style Ingress fill:#fff3cd,stroke:#ffc107
-    style Service fill:#cce5ff,stroke:#004085
-    style Deployment fill:#d4edda,stroke:#28a745
-    style Pod fill:#d1ecf1,stroke:#0c5460
+```
+  ┌──────────────────────────────────────────────────────┐
+  │  👤 외부 요청   HTTP apps.local/java                  │
+  └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  🔀 Ingress   (nginx Ingress Controller)             │
+  │  L7 라우팅: apps.local/java → java-app-svc:8080      │
+  └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  ⚖️  Service  (ClusterIP)                            │
+  │  java-app-svc:8080                                   │
+  │  레이블 app=java-app 으로 Pod 선택 (로드밸런싱)       │
+  └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  📋 Deployment                                       │
+  │  replicas:1  Pod 수·이미지·자원 제한 관리             │
+  └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  🟦 Pod                                              │
+  │  container: java-app:SHA   port: 8080                │
+  │  실제 애플리케이션 프로세스                           │
+  └──────────────────────────────────────────────────────┘
 ```
 
 **왜 Pod를 직접 실행하지 않고 Deployment를 쓰는가?**
@@ -282,45 +277,32 @@ Helm은 강력한 패키지 매니저이지만, 학습 목적에서는 복잡도
 
 ### K8s 핵심 리소스 역할
 
-```mermaid
-graph TD
-    User["👤 외부 요청"]
-
-    Ingress["🔀 Ingress nginx
-apps.local/java → java-app-svc:8080
-apps.local/node → node-app-svc:3000
-apps.local/python → python-app-svc:8000"]
-
-    SvcJ["⚖️ Service
-java-app-svc:8080"]
-    SvcN["⚖️ Service
-node-app-svc:3000"]
-    SvcP["⚖️ Service
-python-app-svc:8000"]
-
-    DepJ["📋 Deployment
-java-app
-└─ Pod :8080"]
-    DepN["📋 Deployment
-node-app
-└─ Pod :3000"]
-    DepP["📋 Deployment
-python-app
-└─ Pod :8000"]
-
-    User --> Ingress
-    Ingress --> SvcJ & SvcN & SvcP
-    SvcJ --> DepJ
-    SvcN --> DepN
-    SvcP --> DepP
-
-    style Ingress fill:#fff3cd,stroke:#ffc107
-    style SvcJ fill:#cce5ff,stroke:#004085
-    style SvcN fill:#cce5ff,stroke:#004085
-    style SvcP fill:#cce5ff,stroke:#004085
-    style DepJ fill:#d4edda,stroke:#28a745
-    style DepN fill:#d4edda,stroke:#28a745
-    style DepP fill:#d4edda,stroke:#28a745
+```
+  ┌──────────────────────────────────────────────────────┐
+  │  👤 외부 요청                                        │
+  └──────────────────────────────────────────────────────┘
+                             │
+                             ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  🔀 Ingress  nginx                                   │
+  │  /java   → java-app-svc:8080                        │
+  │  /node   → node-app-svc:3000                        │
+  │  /python → python-app-svc:8000                      │
+  └──────────────────────────────────────────────────────┘
+          │                  │                  │
+          ▼                  ▼                  ▼
+  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+  │ ⚖️  Service   │  │ ⚖️  Service   │  │ ⚖️  Service   │
+  │ java-app-svc  │  │ node-app-svc  │  │python-app-svc │
+  │    :8080      │  │    :3000      │  │    :8000      │
+  └───────────────┘  └───────────────┘  └───────────────┘
+          │                  │                  │
+          ▼                  ▼                  ▼
+  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐
+  │ 📋 Deployment │  │ 📋 Deployment │  │ 📋 Deployment │
+  │  java-app     │  │  node-app     │  │  python-app   │
+  │  Pod :8080    │  │  Pod :3000    │  │  Pod :8000    │
+  └───────────────┘  └───────────────┘  └───────────────┘
 ```
 
 ### Deployment 매니페스트 분석 (java-app/deployment.yaml)
